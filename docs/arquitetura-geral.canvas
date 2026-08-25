@@ -1,0 +1,501 @@
+{
+  "nodes": [
+    {
+      "id": "group-sources",
+      "type": "group",
+      "x": -1800,
+      "y": -300,
+      "width": 520,
+      "height": 800,
+      "color": "5",
+      "label": "1. Fontes e operação"
+    },
+    {
+      "id": "group-preparation",
+      "type": "group",
+      "x": -1150,
+      "y": -300,
+      "width": 620,
+      "height": 800,
+      "color": "2",
+      "label": "2. Preparação regional"
+    },
+    {
+      "id": "group-packages",
+      "type": "group",
+      "x": -400,
+      "y": -300,
+      "width": 600,
+      "height": 800,
+      "color": "3",
+      "label": "3. Artefatos auditáveis"
+    },
+    {
+      "id": "group-monolith",
+      "type": "group",
+      "x": 330,
+      "y": -400,
+      "width": 1100,
+      "height": 1000,
+      "color": "4",
+      "label": "4. Monólito Django"
+    },
+    {
+      "id": "group-persistence",
+      "type": "group",
+      "x": 1570,
+      "y": -300,
+      "width": 600,
+      "height": 800,
+      "color": "6",
+      "label": "5. Persistência histórica"
+    },
+    {
+      "id": "group-experience",
+      "type": "group",
+      "x": 2300,
+      "y": -300,
+      "width": 580,
+      "height": 800,
+      "color": "5",
+      "label": "6. Experiência local"
+    },
+    {
+      "id": "group-governance",
+      "type": "group",
+      "x": 330,
+      "y": 760,
+      "width": 1840,
+      "height": 400,
+      "color": "1",
+      "label": "Decisões, plano e modelagem"
+    },
+    {
+      "id": "source-receita",
+      "type": "text",
+      "x": -1740,
+      "y": -200,
+      "width": 400,
+      "height": 180,
+      "text": "## Receita Federal\n\n13 competências nacionais de CNPJ\n\nEmpresas • Estabelecimentos • Simples • Sócios"
+    },
+    {
+      "id": "source-geography",
+      "type": "text",
+      "x": -1740,
+      "y": 40,
+      "width": 400,
+      "height": 150,
+      "text": "## IBGE + Receita\n\nCatálogo municipal e correspondência textual TOM–IBGE"
+    },
+    {
+      "id": "source-operator",
+      "type": "text",
+      "x": -1740,
+      "y": 250,
+      "width": 400,
+      "height": 160,
+      "text": "## Operador local\n\nTiago inicia preparação e importação manualmente pelo terminal\n\nSem cron ou fila"
+    },
+    {
+      "id": "prep-command",
+      "type": "text",
+      "x": -1090,
+      "y": -200,
+      "width": 500,
+      "height": 160,
+      "text": "## `prepare_rf_window`\n\nValida fontes, janela, recorte, disco e contratos"
+    },
+    {
+      "id": "prep-duckdb",
+      "type": "text",
+      "x": -1090,
+      "y": 20,
+      "width": 500,
+      "height": 160,
+      "text": "## DuckDB embarcado\n\nDescobre a coorte e projeta somente os campos regionais\n\nProcessamento maior que a RAM"
+    },
+    {
+      "id": "prep-privacy",
+      "type": "text",
+      "x": -1090,
+      "y": 240,
+      "width": 500,
+      "height": 180,
+      "text": "## Privacidade por design\n\nHMAC de sócio PF restrito à empresa\n\nCPF mascarado termina no workspace temporário"
+    },
+    {
+      "id": "artifact-window",
+      "type": "text",
+      "x": -340,
+      "y": -200,
+      "width": 480,
+      "height": 150,
+      "text": "## Manifesto da janela\n\nRecorte • coorte • sequência • contrato • hashes"
+    },
+    {
+      "id": "artifact-packages",
+      "type": "text",
+      "x": -340,
+      "y": 20,
+      "width": 480,
+      "height": 190,
+      "text": "## 13 pacotes imutáveis\n\nUm por competência\n\n`companies.parquet`\n`establishments.parquet`\n`partners.parquet`"
+    },
+    {
+      "id": "artifact-reports",
+      "type": "text",
+      "x": -340,
+      "y": 270,
+      "width": 480,
+      "height": 140,
+      "text": "## Relatórios de QA\n\nContagens, alertas, hashes e desempenho\n\nSem dado pessoal proibido"
+    },
+    {
+      "id": "monolith-import",
+      "type": "text",
+      "x": 400,
+      "y": -270,
+      "width": 430,
+      "height": 150,
+      "text": "## `import_window_package`\n\nValidação • staging lógico • publicação atômica • no-op auditável"
+    },
+    {
+      "id": "monolith-pipeline",
+      "type": "text",
+      "x": 400,
+      "y": -50,
+      "width": 430,
+      "height": 190,
+      "text": "## Pipeline e histórico\n\nJanelas • revisões • lotes • qualidade\n\nIdempotência • correções • lacunas"
+    },
+    {
+      "id": "monolith-changes",
+      "type": "text",
+      "x": 930,
+      "y": -270,
+      "width": 430,
+      "height": 190,
+      "text": "## Eventos e métricas\n\n12 comparações consecutivas\n\n10 eventos P0 • 5 P1 • 15.751 métricas"
+    },
+    {
+      "id": "monolith-portal",
+      "type": "text",
+      "x": 930,
+      "y": -20,
+      "width": 430,
+      "height": 190,
+      "text": "## Portal Django\n\nViews • Forms • Templates\n\nPesquisa • detalhe • timeline • dashboard"
+    },
+    {
+      "id": "monolith-tests",
+      "type": "text",
+      "x": 650,
+      "y": 260,
+      "width": 650,
+      "height": 180,
+      "text": "## Qualidade dentro do monólito\n\n67 testes • PostgreSQL • transações • comandos • fluxos\n\nRevisões externas de Gabriel e Emili pendentes"
+    },
+    {
+      "id": "db-postgres",
+      "type": "text",
+      "x": 1630,
+      "y": -180,
+      "width": 480,
+      "height": 180,
+      "text": "## PostgreSQL\n\nUma janela ativa • 13 revisões r2\nlocalhost:5433 → db:5432\nConstraints e índices"
+    },
+    {
+      "id": "db-snapshots",
+      "type": "text",
+      "x": 1630,
+      "y": 70,
+      "width": 480,
+      "height": 180,
+      "text": "## Evidência histórica\n\nCompanySnapshot\nEstablishmentSnapshot\nPartnerSnapshot"
+    },
+    {
+      "id": "db-derived",
+      "type": "text",
+      "x": 1630,
+      "y": 310,
+      "width": 480,
+      "height": 140,
+      "text": "## Projeções recalculáveis\n\nChangeEvent • métricas • qualidade • auditoria"
+    },
+    {
+      "id": "ui-browser",
+      "type": "text",
+      "x": 2360,
+      "y": -180,
+      "width": 460,
+      "height": 150,
+      "text": "## Navegador local\n\nlocalhost:8000\nHTML renderizado no servidor\nJavaScript simples"
+    },
+    {
+      "id": "ui-company",
+      "type": "text",
+      "x": 2360,
+      "y": 40,
+      "width": 460,
+      "height": 180,
+      "text": "## Consulta empresarial\n\nPesquisa • empresa • estabelecimentos\nQuadro societário • timeline"
+    },
+    {
+      "id": "ui-dashboard",
+      "type": "text",
+      "x": 2360,
+      "y": 280,
+      "width": 460,
+      "height": 160,
+      "text": "## Visão regional e operação\n\nDashboard • filtros\nLotes • revisões • alertas"
+    },
+    {
+      "id": "doc-validation",
+      "type": "file",
+      "x": 400,
+      "y": 850,
+      "width": 500,
+      "height": 230,
+      "file": "docs/backend-cnpj-regional-validacao-arquitetural.md"
+    },
+    {
+      "id": "doc-plan",
+      "type": "file",
+      "x": 980,
+      "y": 850,
+      "width": 500,
+      "height": 230,
+      "file": "docs/backend-cnpj-regional-plano-implementacao.md"
+    },
+    {
+      "id": "doc-database",
+      "type": "file",
+      "x": 1560,
+      "y": 850,
+      "width": 500,
+      "height": 230,
+      "file": "docs/modelagem-banco-dados.md"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-receita-prepare",
+      "fromNode": "source-receita",
+      "fromSide": "right",
+      "toNode": "prep-command",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "dados mensais"
+    },
+    {
+      "id": "edge-geography-prepare",
+      "fromNode": "source-geography",
+      "fromSide": "right",
+      "toNode": "prep-command",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "recorte e códigos"
+    },
+    {
+      "id": "edge-operator-prepare",
+      "fromNode": "source-operator",
+      "fromSide": "right",
+      "toNode": "prep-command",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "disparo manual"
+    },
+    {
+      "id": "edge-prepare-duckdb",
+      "fromNode": "prep-command",
+      "fromSide": "bottom",
+      "toNode": "prep-duckdb",
+      "toSide": "top",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "edge-duckdb-privacy",
+      "fromNode": "prep-duckdb",
+      "fromSide": "bottom",
+      "toNode": "prep-privacy",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "minimização"
+    },
+    {
+      "id": "edge-duckdb-window",
+      "fromNode": "prep-duckdb",
+      "fromSide": "right",
+      "toNode": "artifact-window",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "edge-privacy-packages",
+      "fromNode": "prep-privacy",
+      "fromSide": "right",
+      "toNode": "artifact-packages",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "edge-packages-reports",
+      "fromNode": "artifact-packages",
+      "fromSide": "bottom",
+      "toNode": "artifact-reports",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "validação"
+    },
+    {
+      "id": "edge-window-import",
+      "fromNode": "artifact-window",
+      "fromSide": "right",
+      "toNode": "monolith-import",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "edge-packages-import",
+      "fromNode": "artifact-packages",
+      "fromSide": "right",
+      "toNode": "monolith-import",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "edge-operator-import",
+      "fromNode": "source-operator",
+      "fromSide": "right",
+      "toNode": "monolith-import",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "disparo manual"
+    },
+    {
+      "id": "edge-import-pipeline",
+      "fromNode": "monolith-import",
+      "fromSide": "bottom",
+      "toNode": "monolith-pipeline",
+      "toSide": "top",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "edge-pipeline-changes",
+      "fromNode": "monolith-pipeline",
+      "fromSide": "right",
+      "toNode": "monolith-changes",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "snapshots consecutivos"
+    },
+    {
+      "id": "edge-pipeline-postgres",
+      "fromNode": "monolith-pipeline",
+      "fromSide": "right",
+      "toNode": "db-postgres",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "revisões atômicas"
+    },
+    {
+      "id": "edge-changes-derived",
+      "fromNode": "monolith-changes",
+      "fromSide": "right",
+      "toNode": "db-derived",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "edge-postgres-snapshots",
+      "fromNode": "db-postgres",
+      "fromSide": "bottom",
+      "toNode": "db-snapshots",
+      "toSide": "top",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "edge-snapshots-portal",
+      "fromNode": "db-snapshots",
+      "fromSide": "left",
+      "toNode": "monolith-portal",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "consultas ativas"
+    },
+    {
+      "id": "edge-derived-portal",
+      "fromNode": "db-derived",
+      "fromSide": "right",
+      "toNode": "ui-dashboard",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "indicadores"
+    },
+    {
+      "id": "edge-portal-browser",
+      "fromNode": "monolith-portal",
+      "fromSide": "right",
+      "toNode": "ui-browser",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "HTML"
+    },
+    {
+      "id": "edge-browser-company",
+      "fromNode": "ui-browser",
+      "fromSide": "bottom",
+      "toNode": "ui-company",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "navegação"
+    },
+    {
+      "id": "edge-company-dashboard",
+      "fromNode": "ui-company",
+      "fromSide": "bottom",
+      "toNode": "ui-dashboard",
+      "toSide": "top",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "edge-tests-pipeline",
+      "fromNode": "monolith-tests",
+      "fromSide": "top",
+      "toNode": "monolith-pipeline",
+      "toSide": "bottom",
+      "toEnd": "arrow",
+      "color": "1",
+      "label": "verifica"
+    },
+    {
+      "id": "edge-tests-changes",
+      "fromNode": "monolith-tests",
+      "fromSide": "top",
+      "toNode": "monolith-changes",
+      "toSide": "bottom",
+      "toEnd": "arrow",
+      "color": "1",
+      "label": "verifica"
+    },
+    {
+      "id": "edge-validation-plan",
+      "fromNode": "doc-validation",
+      "fromSide": "right",
+      "toNode": "doc-plan",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "orienta"
+    },
+    {
+      "id": "edge-plan-model",
+      "fromNode": "doc-plan",
+      "fromSide": "right",
+      "toNode": "doc-database",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "detalha"
+    }
+  ]
+}
