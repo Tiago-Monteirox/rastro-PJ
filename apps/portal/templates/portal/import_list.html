@@ -1,0 +1,71 @@
+{% extends "portal/base.html" %}
+{% block title %}Importações e qualidade{% endblock %}
+{% block content %}
+  <section class="page-heading">
+    <span class="eyebrow">Operação</span>
+    <h1>Importações e qualidade</h1>
+    <p>Lotes, revisões, proveniência e alertas permanecem auditáveis.</p>
+  </section>
+
+  <section class="panel">
+    <div class="section-heading">
+      <div><span class="eyebrow">Janela ativa</span><h2>Revisões por competência</h2></div>
+      {% if active_window %}<span class="badge active">{{ active_window.code }}</span>{% endif %}
+    </div>
+    {% if revisions %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Competência</th><th>Revisão</th><th>Estado</th><th>Linhas</th><th>Alertas</th><th>Proveniência</th></tr></thead>
+          <tbody>
+            {% for revision in revisions %}
+              <tr>
+                <td>{{ revision.window_competence.competence|date:"m/Y" }}</td>
+                <td>r{{ revision.revision_number }}</td>
+                <td><span class="badge {{ revision.status|lower }}">{{ revision.get_status_display }}</span></td>
+                <td><code>{{ revision.row_counts }}</code></td>
+                <td>{{ revision.warning_count }}</td>
+                <td>{{ revision.source_count }} fonte(s) · {{ revision.package_count }} artefato(s)</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty">Nenhuma revisão publicada.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <div class="section-heading"><div><span class="eyebrow">Execuções</span><h2>Lotes de processamento</h2></div></div>
+    {% if batches %}
+      <div class="card-list">
+        {% for batch in batches %}
+          <article>
+            <div class="section-heading">
+              <div>
+                <strong>{{ batch.get_operation_display }}{% if batch.sanitized_options.window_code %} · {{ batch.sanitized_options.window_code }}{% endif %}</strong>
+                <small>{{ batch.id }} · {{ batch.started_at|date:"d/m/Y H:i:s" }}</small>
+              </div>
+              <span class="badge {{ batch.status|lower }}">{{ batch.get_status_display }}</span>
+            </div>
+            <p>Fase: {{ batch.phase|default:"—" }}</p>
+            {% if batch.counters %}<code>{{ batch.counters }}</code>{% endif %}
+            {% if batch.error_message %}<p class="error">{{ batch.error_code }}: {{ batch.error_message }}</p>{% endif %}
+            {% if batch.quality_issue_count %}
+              <details>
+                <summary>{{ batch.quality_issue_count }} alerta(s) de qualidade</summary>
+                <ul>
+                  {% for summary in batch.quality_summary %}
+                    <li>{{ summary.rule_code }} · {{ summary.total }} ocorrência(s) · {{ summary.affected }} afetada(s)</li>
+                  {% endfor %}
+                </ul>
+              </details>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty">Nenhum lote registrado.</p>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "portal/base.html" %}
+{% block title %}Entrar{% endblock %}
+{% block content %}
+  <section class="auth-panel panel">
+    <span class="eyebrow">Acesso local</span><h1>Entrar</h1>
+    <p>Use o usuário criado pelo comando <code>createsuperuser</code>.</p>
+    {% if form.errors %}<p class="error">Usuário ou senha inválidos.</p>{% endif %}
+    <form method="post" class="filter-form">{% csrf_token %}
+      <label for="id_username">Usuário{{ form.username }}</label>
+      <label for="id_password">Senha{{ form.password }}</label>
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+      <button type="submit">Entrar</button>
+    </form>
+  </section>
+{% endblock %}

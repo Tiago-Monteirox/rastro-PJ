@@ -1,0 +1,109 @@
+{% extends "portal/base.html" %}
+{% block content %}
+  <section class="hero compact-hero">
+    <div>
+      <span class="status">{% if active_window %}Janela publicada{% else %}Aguardando dados{% endif %}</span>
+      <h1>O histórico empresarial do Triângulo Mineiro, mês a mês.</h1>
+      <p>Pesquise empresas reais, acompanhe mudanças cadastrais e confira a evidência de cada comparação.</p>
+      <form class="hero-search" action="{% url 'portal:company-search' %}" method="get">
+        <label class="sr-only" for="dashboard-search">CNPJ, razão social ou nome fantasia</label>
+        <input id="dashboard-search" name="q" placeholder="CNPJ, razão social ou nome fantasia">
+        <button type="submit">Pesquisar</button>
+      </form>
+    </div>
+    <aside>
+      <span>Janela ativa</span>
+      <strong>{% if active_window %}{{ active_window.start_competence|date:"m/Y" }}–{{ active_window.end_competence|date:"m/Y" }}{% else %}Ainda não importada{% endif %}</strong>
+      {% if latest_revision %}<small>Última competência: {{ latest_revision.window_competence.competence|date:"m/Y" }}</small>{% endif %}
+    </aside>
+  </section>
+  {% if active_window %}
+    <section class="panel dashboard-filters" aria-labelledby="dashboard-filter-title">
+      <div class="section-heading">
+        <div><span class="eyebrow">Recorte dos indicadores</span><h2 id="dashboard-filter-title">Filtrar dashboard</h2></div>
+        <a href="{% url 'portal:home' %}">Limpar filtros</a>
+      </div>
+      <form class="filter-grid dashboard-filter-grid" method="get">
+        <label>Competência
+          <select name="competence">
+            {% for revision in revision_options %}
+              {% with value=revision.window_competence.competence|date:"Y-m" %}
+                <option value="{{ value }}" {% if filters.competence == value %}selected{% endif %}>{{ revision.window_competence.competence|date:"m/Y" }}</option>
+              {% endwith %}
+            {% endfor %}
+          </select>
+        </label>
+        <label>Município
+          <select name="municipality">
+            <option value="">Todos os 35 municípios</option>
+            {% for municipality in municipalities %}
+              <option value="{{ municipality.ibge_code }}" {% if filters.municipality == municipality.ibge_code %}selected{% endif %}>{{ municipality.name }}/{{ municipality.uf }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>CNAE principal
+          <input name="cnae" value="{{ filters.cnae }}" list="dashboard-cnae-options" inputmode="numeric" pattern="[0-9]{7}" placeholder="Todos os CNAEs">
+          <datalist id="dashboard-cnae-options">
+            {% for cnae in cnae_options %}<option value="{{ cnae }}"></option>{% endfor %}
+          </datalist>
+        </label>
+        <button type="submit">Aplicar</button>
+      </form>
+      <p class="filter-note">Empresas são contadas uma vez; estabelecimentos consideram somente ocorrências regionais na competência selecionada.</p>
+    </section>
+  {% endif %}
+  <section class="metrics four" aria-label="Resumo da base">
+    <article><span>Competências</span><strong>{{ published_competences }}</strong></article>
+    <article><span>Empresas regionais</span><strong>{{ companies }}</strong></article>
+    <article><span>Estabelecimentos</span><strong>{{ establishments }}</strong></article>
+    <article><span>Eventos no intervalo</span><strong>{{ event_total }}</strong></article>
+  </section>
+  <section class="metrics two" aria-label="Movimentação de estabelecimentos no intervalo">
+    <article><span>Estabelecimentos abertos</span><strong>{{ opened }}</strong></article>
+    <article><span>Estabelecimentos baixados</span><strong>{{ closed }}</strong></article>
+  </section>
+  <div class="two-columns">
+    <section class="panel">
+      <div class="section-heading"><div><span class="eyebrow">Situação cadastral</span><h2>Estabelecimentos</h2></div></div>
+      {% if status_distribution %}<div class="event-bars">{% for item in status_distribution %}<div><span>{{ item.code }} — {{ item.label }}</span><strong>{{ item.total }}</strong></div>{% endfor %}</div>{% else %}<p class="empty">Sem distribuição disponível.</p>{% endif %}
+    </section>
+    <section class="panel">
+      <div class="section-heading"><div><span class="eyebrow">Porte</span><h2>Empresas distintas</h2></div></div>
+      {% if size_distribution %}<div class="event-bars">{% for item in size_distribution %}<div><span>{{ item.code }} — {{ item.label }}</span><strong>{{ item.total }}</strong></div>{% endfor %}</div>{% else %}<p class="empty">Sem distribuição disponível.</p>{% endif %}
+    </section>
+  </div>
+  <div class="two-columns">
+    <section class="panel">
+      <div class="section-heading"><div><span class="eyebrow">Evolução regional</span><h2>Estabelecimentos por competência</h2></div></div>
+      {% if establishment_trend %}<div class="table-wrap"><table><thead><tr><th>Competência</th><th>Total</th></tr></thead><tbody>{% for item in establishment_trend %}<tr><td>{{ item.competence|date:"m/Y" }}</td><td>{{ item.total }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty">Sem série histórica disponível.</p>{% endif %}
+    </section>
+    <section class="panel">
+      <div class="section-heading"><div><span class="eyebrow">Fluxo cadastral</span><h2>Aberturas e baixas por competência</h2></div></div>
+      {% if opening_closing_series %}<div class="table-wrap"><table><thead><tr><th>Competência</th><th>Abertos</th><th>Baixados</th></tr></thead><tbody>{% for item in opening_closing_series %}<tr><td>{{ item.competence|date:"m/Y" }}</td><td>{{ item.opened }}</td><td>{{ item.closed }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty">Sem série histórica disponível.</p>{% endif %}
+    </section>
+  </div>
+  <div class="two-columns">
+    <section class="panel">
+      <div class="section-heading"><div><span class="eyebrow">Atividade econômica</span><h2>CNAEs com maior crescimento</h2></div></div>
+      {% if cnae_growth %}<div class="event-bars">{% for item in cnae_growth %}<div><span>{{ item.code }} · {{ item.previous }} → {{ item.current }}</span><strong>+{{ item.delta }}</strong></div>{% endfor %}</div>{% else %}<p class="empty">Nenhum crescimento no recorte selecionado.</p>{% endif %}
+    </section>
+    <section class="panel">
+      <div class="section-heading"><div><span class="eyebrow">Atividade econômica</span><h2>CNAEs com maior redução</h2></div></div>
+      {% if cnae_reduction %}<div class="event-bars">{% for item in cnae_reduction %}<div><span>{{ item.code }} · {{ item.previous }} → {{ item.current }}</span><strong>{{ item.delta }}</strong></div>{% endfor %}</div>{% else %}<p class="empty">Nenhuma redução no recorte selecionado.</p>{% endif %}
+    </section>
+  </div>
+  <section class="panel">
+    <div class="section-heading"><div><span class="eyebrow">Mudanças recentes</span><h2>Empresas alteradas no intervalo</h2></div><a href="{% url 'portal:event-list' %}?competence={{ filters.competence }}">Ver eventos</a></div>
+    {% if recent_companies %}<div class="result-list">{% for item in recent_companies %}<a href="{% url 'portal:company-detail' item.company.cnpj_basic %}"><span><strong>{{ item.company.cnpj_basic }}</strong><small>{{ item.event.event_type }}</small></span><span><small>{{ item.event.from_revision.window_competence.competence|date:"m/Y" }} → {{ item.event.to_revision.window_competence.competence|date:"m/Y" }}</small></span></a>{% endfor %}</div>{% else %}<p class="empty">Nenhuma empresa alterada nesse intervalo.</p>{% endif %}
+  </section>
+  <div class="two-columns">
+    <section class="panel">
+      <div class="section-heading"><div><span class="eyebrow">Mudanças</span><h2>Eventos por tipo</h2></div><a href="{% url 'portal:event-list' %}?competence={{ filters.competence }}">Ver todos</a></div>
+      {% if event_counts %}<div class="event-bars">{% for item in event_counts %}<div><span>{{ item.event_type }}</span><strong>{{ item.total }}</strong></div>{% endfor %}</div>{% else %}<p class="empty">Nenhum evento publicado.</p>{% endif %}
+    </section>
+    <section class="panel">
+      <div class="section-heading"><div><span class="eyebrow">Operação</span><h2>Últimos lotes</h2></div><a href="{% url 'portal:import-list' %}">Detalhes</a></div>
+      {% if latest_batches %}<div class="stack-list">{% for batch in latest_batches %}<div><span><strong>{{ batch.get_operation_display }}</strong><small>{{ batch.started_at|date:"d/m/Y H:i" }}</small></span><span class="badge {{ batch.status|lower }}">{{ batch.get_status_display }}</span></div>{% endfor %}</div>{% else %}<p class="empty">Nenhum lote executado.</p>{% endif %}
+    </section>
+  </div>
+{% endblock %}

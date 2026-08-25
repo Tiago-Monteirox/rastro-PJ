@@ -1,0 +1,50 @@
+{% extends "portal/base.html" %}
+{% block title %}Pesquisa de empresas{% endblock %}
+{% block content %}
+  <section class="page-heading"><span class="eyebrow">Consulta</span><h1>Empresas e estabelecimentos</h1><p>Busque por CNPJ básico ou completo, razão social ou nome fantasia e refine pelo estabelecimento regional.</p></section>
+  <section class="panel">
+    <div class="section-heading">
+      <div><span class="eyebrow">Competência mais recente</span><h2>Critérios da consulta</h2></div>
+      <a href="{% url 'portal:company-search' %}">Limpar filtros</a>
+    </div>
+    <form class="filter-form filter-grid search-filter-grid" method="get">
+      <label for="company-query">Termo de pesquisa
+        <input id="company-query" name="q" value="{{ query }}" placeholder="CNPJ, razão social ou nome fantasia">
+      </label>
+      <label>Município
+        <select name="municipality">
+          <option value="">Todos os 35 municípios</option>
+          {% for municipality in municipalities %}
+            <option value="{{ municipality.ibge_code }}" {% if filters.municipality == municipality.ibge_code %}selected{% endif %}>{{ municipality.name }}/{{ municipality.uf }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Situação cadastral
+        <select name="status">
+          <option value="">Todas as situações</option>
+          {% for code, label in status_options %}
+            <option value="{{ code }}" {% if filters.status == code %}selected{% endif %}>{{ code }} — {{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>CNAE principal
+        <input name="cnae" value="{{ filters.cnae }}" inputmode="numeric" pattern="[0-9]{7}" placeholder="Ex.: 4711302">
+      </label>
+      <button type="submit">Pesquisar</button>
+    </form>
+    <p class="filter-note">Os filtros consideram estabelecimentos presentes no recorte regional na última competência publicada.</p>
+    {% if has_search %}
+      <p class="result-count">{{ results|length }} resultado(s) na última competência publicada.</p>
+      {% if results %}
+        <div class="result-list">
+          {% for item in results %}
+            <a href="{% url 'portal:company-detail' item.company.cnpj_basic %}">
+              <span><strong>{{ item.snapshot.legal_name }}</strong><small>CNPJ básico {{ item.company.cnpj_basic }}</small></span>
+              <span><strong>{{ item.regional_establishments }}</strong><small>estabelecimento(s) regional(is)</small></span>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}<p class="empty">Nenhuma empresa encontrada para os critérios informados.</p>{% endif %}
+    {% endif %}
+  </section>
+{% endblock %}
