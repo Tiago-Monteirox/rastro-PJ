@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    shm_size: 256mb
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cnpj_regional}
+      POSTGRES_USER: ${POSTGRES_USER:-cnpj_regional}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cnpj_regional_local}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${POSTGRES_PORT_FORWARD:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build:
+      context: .
+    environment:
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-unsafe-local-development-key}
+      RF_PARTNER_HMAC_SECRET: ${RF_PARTNER_HMAC_SECRET:-unsafe-local-partner-hmac-key}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,[::1]}
+      POSTGRES_DB: ${POSTGRES_DB:-cnpj_regional}
+      POSTGRES_USER: ${POSTGRES_USER:-cnpj_regional}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cnpj_regional_local}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - web_venv:/app/.venv
+
+volumes:
+  postgres_data:
+  web_venv:

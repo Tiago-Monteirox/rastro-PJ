@@ -1,0 +1,40 @@
+[project]
+name = "inteligencia-cadastral-regional"
+version = "0.1.0"
+description = "Monólito local para inteligência cadastral regional a partir dos dados abertos do CNPJ."
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "django>=5.2,<5.3",
+    "duckdb>=1.4,<2",
+    "pyarrow>=20,<24",
+    "psycopg[binary]>=3.2,<3.3",
+]
+
+[dependency-groups]
+dev = [
+    "coverage[toml]>=7.10,<8",
+    "ruff>=0.12,<1",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["*/migrations/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "DJ"]
+# NULL representa "desconhecido" nos campos opcionais vindos da fonte oficial.
+ignore = ["DJ001", "DJ008"]
+
+[tool.coverage.run]
+branch = true
+source = ["apps", "config"]
+omit = ["*/migrations/*", "*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
