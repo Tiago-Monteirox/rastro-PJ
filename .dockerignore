@@ -1,0 +1,10 @@
+.DS_Store
+.env
+.git
+.venv
+.ruff_cache
+.codebase-memory
+__pycache__
+*.pyc
+htmlcov
+var/data

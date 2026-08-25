@@ -1,0 +1,18 @@
+.DS_Store
+.env
+.venv/
+.coverage
+htmlcov/
+__pycache__/
+*.py[cod]
+*.sqlite3
+.ruff_cache/
+.codebase-memory/
+
+# Dados reais, pacotes, relatórios e áreas temporárias do ETL.
+var/data/
+
+# Artefatos locais de IDE.
+.idea/
+.vscode/
+*.swp
