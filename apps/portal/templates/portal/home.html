@@ -24,11 +24,20 @@
         <a href="{% url 'portal:home' %}">Limpar filtros</a>
       </div>
       <form class="filter-grid dashboard-filter-grid" method="get">
-        <label>Competência
-          <select name="competence">
+        <label>De
+          <select name="start_competence">
             {% for revision in revision_options %}
               {% with value=revision.window_competence.competence|date:"Y-m" %}
-                <option value="{{ value }}" {% if filters.competence == value %}selected{% endif %}>{{ revision.window_competence.competence|date:"m/Y" }}</option>
+                <option value="{{ value }}" {% if filters.start_competence == value %}selected{% endif %}>{{ revision.window_competence.competence|date:"m/Y" }}</option>
+              {% endwith %}
+            {% endfor %}
+          </select>
+        </label>
+        <label>Até
+          <select name="end_competence">
+            {% for revision in revision_options %}
+              {% with value=revision.window_competence.competence|date:"Y-m" %}
+                <option value="{{ value }}" {% if filters.end_competence == value %}selected{% endif %}>{{ revision.window_competence.competence|date:"m/Y" }}</option>
               {% endwith %}
             {% endfor %}
           </select>
@@ -49,7 +58,7 @@
         </label>
         <button type="submit">Aplicar</button>
       </form>
-      <p class="filter-note">Empresas são contadas uma vez; estabelecimentos consideram somente ocorrências regionais na competência selecionada.</p>
+      <p class="filter-note">Os totais representam a competência final. Eventos, variações e rankings consideram todo o intervalo; o município e o CNAE são aplicados à presença empresarial na competência final.</p>
     </section>
   {% endif %}
   <section class="metrics four" aria-label="Resumo da base">
@@ -92,14 +101,42 @@
       {% if cnae_reduction %}<div class="event-bars">{% for item in cnae_reduction %}<div><span>{{ item.code }} · {{ item.previous }} → {{ item.current }}</span><strong>{{ item.delta }}</strong></div>{% endfor %}</div>{% else %}<p class="empty">Nenhuma redução no recorte selecionado.</p>{% endif %}
     </section>
   </div>
+  <div class="two-columns">
+    <section class="panel">
+      <div class="section-heading"><div><span class="eyebrow">Expansão financeira</span><h2>Maiores aumentos de capital social</h2></div></div>
+      {% if capital_growth %}
+        <div class="ranking-list">
+          {% for item in capital_growth %}
+            <a href="{% url 'portal:company-detail' item.cnpj_basic %}">
+              <span><strong>{{ item.legal_name }}</strong><small>CNPJ básico {{ item.cnpj_basic }} · {{ item.previous_display }} → {{ item.current_display }}</small></span>
+              <strong class="positive-value">+{{ item.delta_display }}</strong>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}<p class="empty">Nenhum aumento de capital social no recorte selecionado.</p>{% endif %}
+    </section>
+    <section class="panel">
+      <div class="section-heading"><div><span class="eyebrow">Expansão societária</span><h2>Empresas que mais ampliaram o quadro societário</h2></div></div>
+      {% if partner_growth %}
+        <div class="ranking-list">
+          {% for item in partner_growth %}
+            <a href="{% url 'portal:company-detail' item.cnpj_basic %}">
+              <span><strong>{{ item.legal_name }}</strong><small>CNPJ básico {{ item.cnpj_basic }} · {{ item.previous }} → {{ item.current }} sócios · {{ item.added }} entradas e {{ item.removed }} saídas</small></span>
+              <strong class="positive-value">+{{ item.delta }}</strong>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}<p class="empty">Nenhuma ampliação líquida do quadro societário no recorte selecionado.</p>{% endif %}
+    </section>
+  </div>
   <section class="panel">
-    <div class="section-heading"><div><span class="eyebrow">Mudanças recentes</span><h2>Empresas alteradas no intervalo</h2></div><a href="{% url 'portal:event-list' %}?competence={{ filters.competence }}">Ver eventos</a></div>
-    {% if recent_companies %}<div class="result-list">{% for item in recent_companies %}<a href="{% url 'portal:company-detail' item.company.cnpj_basic %}"><span><strong>{{ item.company.cnpj_basic }}</strong><small>{{ item.event.event_type }}</small></span><span><small>{{ item.event.from_revision.window_competence.competence|date:"m/Y" }} → {{ item.event.to_revision.window_competence.competence|date:"m/Y" }}</small></span></a>{% endfor %}</div>{% else %}<p class="empty">Nenhuma empresa alterada nesse intervalo.</p>{% endif %}
+    <div class="section-heading"><div><span class="eyebrow">Mudanças recentes</span><h2>Empresas alteradas no intervalo</h2></div><a href="{% url 'portal:event-list' %}?competence={{ filters.end_competence }}">Ver eventos</a></div>
+    {% if recent_companies %}<div class="result-list">{% for item in recent_companies %}<a href="{% url 'portal:company-detail' item.company.cnpj_basic %}"><span><strong>{{ item.company.cnpj_basic }}</strong><small>{{ item.event.label }}</small></span><span><small>{{ item.event.record.from_revision.window_competence.competence|date:"m/Y" }} → {{ item.event.record.to_revision.window_competence.competence|date:"m/Y" }}</small></span></a>{% endfor %}</div>{% else %}<p class="empty">Nenhuma empresa alterada nesse intervalo.</p>{% endif %}
   </section>
   <div class="two-columns">
     <section class="panel">
-      <div class="section-heading"><div><span class="eyebrow">Mudanças</span><h2>Eventos por tipo</h2></div><a href="{% url 'portal:event-list' %}?competence={{ filters.competence }}">Ver todos</a></div>
-      {% if event_counts %}<div class="event-bars">{% for item in event_counts %}<div><span>{{ item.event_type }}</span><strong>{{ item.total }}</strong></div>{% endfor %}</div>{% else %}<p class="empty">Nenhum evento publicado.</p>{% endif %}
+      <div class="section-heading"><div><span class="eyebrow">Mudanças</span><h2>Eventos por tipo</h2></div><a href="{% url 'portal:event-list' %}?competence={{ filters.end_competence }}">Ver todos</a></div>
+      {% if event_counts %}<div class="event-bars">{% for item in event_counts %}<div><span>{{ item.label }}</span><strong>{{ item.total }}</strong></div>{% endfor %}</div>{% else %}<p class="empty">Nenhum evento publicado.</p>{% endif %}
     </section>
     <section class="panel">
       <div class="section-heading"><div><span class="eyebrow">Operação</span><h2>Últimos lotes</h2></div><a href="{% url 'portal:import-list' %}">Detalhes</a></div>

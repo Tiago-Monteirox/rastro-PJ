@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 
-from django.db.models import Count, F, Q, Sum
+from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
 
 from apps.changes.models import ChangeEvent, RegionalMonthlyMetric
@@ -22,6 +23,14 @@ from apps.registry.models import (
 )
 
 from ..models import Watchlist
+from .analytics import capital_growth_ranking, partner_growth_ranking
+from .presenters import (
+    event_type_options,
+    format_brl_currency,
+    present_event,
+    present_event_counts,
+    present_events,
+)
 
 SEARCH_STATUS_OPTIONS = (
     ("01", "Nula"),
@@ -45,7 +54,7 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
     window = _active_window()
     revisions = list(_active_revisions(window))
     latest = revisions[-1] if revisions else None
-    selected_competence = filters.get("competence", "").strip()
+    selected_competence = filters.get("end_competence", filters.get("competence", "")).strip()
     selected_revision = next(
         (
             revision
@@ -55,7 +64,21 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
         latest,
     )
     selected_index = revisions.index(selected_revision) if selected_revision else -1
-    previous_revision = revisions[selected_index - 1] if selected_index > 0 else None
+    default_start_index = max(selected_index - 1, 0)
+    requested_start = filters.get("start_competence", "").strip()
+    start_revision = next(
+        (
+            revision
+            for revision in revisions[: selected_index + 1]
+            if revision.window_competence.competence.strftime("%Y-%m") == requested_start
+        ),
+        revisions[default_start_index] if selected_revision else None,
+    )
+    start_index = revisions.index(start_revision) if start_revision else -1
+    analysis_revisions = (
+        revisions[start_index : selected_index + 1] if start_revision and selected_revision else []
+    )
+    interval_revisions = analysis_revisions[1:]
 
     municipalities = []
     if window:
@@ -118,24 +141,49 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
 
     eligible_company_ids = regional_establishments.values("establishment__company_id")
     eligible_establishment_ids = regional_establishments.values("establishment_id")
-    interval_events = ChangeEvent.objects.none()
+    company_events = ChangeEvent.objects.none()
+    establishment_events = ChangeEvent.objects.none()
+    participation_events = ChangeEvent.objects.none()
     event_counts = []
     if window and selected_revision:
-        interval_events = ChangeEvent.objects.filter(
+        base_interval_events = ChangeEvent.objects.filter(
             historical_window=window,
-            to_revision=selected_revision,
+            to_revision__in=interval_revisions,
         )
         if selected_municipality or selected_cnae:
-            interval_events = interval_events.filter(
-                Q(company_id__in=eligible_company_ids)
-                | Q(establishment_id__in=eligible_establishment_ids)
-                | Q(participation__company_id__in=eligible_company_ids)
+            company_events = base_interval_events.filter(company_id__in=eligible_company_ids)
+            establishment_events = base_interval_events.filter(
+                establishment_id__in=eligible_establishment_ids
             )
-        event_counts = list(
-            interval_events.values("event_type")
-            .annotate(total=Count("id"))
-            .order_by("-total", "event_type")
-        )
+            participation_events = base_interval_events.filter(
+                participation__company_id__in=eligible_company_ids
+            )
+            event_totals_by_type = Counter()
+            for event_query in (company_events, establishment_events, participation_events):
+                event_totals_by_type.update(
+                    dict(
+                        event_query.values_list("event_type")
+                        .annotate(total=Count("id"))
+                        .values_list("event_type", "total")
+                    )
+                )
+            event_counts = [
+                {"event_type": event_type, "total": total}
+                for event_type, total in sorted(
+                    event_totals_by_type.items(),
+                    key=lambda item: (-item[1], item[0]),
+                )
+            ]
+        else:
+            company_events = base_interval_events.filter(company__isnull=False)
+            establishment_events = base_interval_events.filter(establishment__isnull=False)
+            participation_events = base_interval_events.filter(participation__isnull=False)
+            event_counts = list(
+                base_interval_events.values("event_type")
+                .annotate(total=Count("id"))
+                .order_by("-total", "event_type")
+            )
+        event_counts = present_event_counts(event_counts)
 
     event_totals = {item["event_type"]: item["total"] for item in event_counts}
 
@@ -190,28 +238,28 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
         )
 
     trend_by_competence = {}
-    if revisions:
+    if analysis_revisions:
         if not selected_municipality and not selected_cnae:
             trend_rows = RegionalMonthlyMetric.objects.filter(
-                revision__in=revisions,
+                revision__in=analysis_revisions,
                 metric_type="REGIONAL_ESTABLISHMENTS_TOTAL",
             ).values("revision_id", "value")
         elif selected_municipality and not selected_cnae:
             trend_rows = RegionalMonthlyMetric.objects.filter(
-                revision__in=revisions,
+                revision__in=analysis_revisions,
                 metric_type="REGIONAL_ESTABLISHMENTS_BY_MUNICIPALITY",
                 municipality__ibge_code=selected_municipality,
             ).values("revision_id", "value")
         elif selected_cnae and not selected_municipality:
             trend_rows = RegionalMonthlyMetric.objects.filter(
-                revision__in=revisions,
+                revision__in=analysis_revisions,
                 metric_type="REGIONAL_ESTABLISHMENTS_BY_CNAE",
                 cnae_code=selected_cnae,
             ).values("revision_id", "value")
         else:
             trend_rows = (
                 EstablishmentSnapshot.objects.filter(
-                    revision__in=revisions,
+                    revision__in=analysis_revisions,
                     is_in_region=True,
                     municipality__ibge_code=selected_municipality,
                     main_cnae_code=selected_cnae,
@@ -225,28 +273,14 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
             "competence": revision.window_competence.competence,
             "total": trend_by_competence.get(revision.pk, 0),
         }
-        for revision in revisions
+        for revision in analysis_revisions
     ]
 
     opening_closing_rows = []
     if window:
-        opening_closing_events = ChangeEvent.objects.filter(
-            historical_window=window,
+        opening_closing_events = establishment_events.filter(
             event_type__in=("ESTABLISHMENT_OPENED", "ESTABLISHMENT_CLOSED"),
         )
-        if selected_municipality or selected_cnae:
-            opening_closing_events = opening_closing_events.filter(
-                establishment__snapshots__revision=F("to_revision"),
-                establishment__snapshots__is_in_region=True,
-            )
-            if selected_municipality:
-                opening_closing_events = opening_closing_events.filter(
-                    establishment__snapshots__municipality__ibge_code=selected_municipality
-                )
-            if selected_cnae:
-                opening_closing_events = opening_closing_events.filter(
-                    establishment__snapshots__main_cnae_code=selected_cnae
-                )
         opening_closing_rows = list(
             opening_closing_events.values(
                 "to_revision_id",
@@ -262,7 +296,7 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
             "opened": opening_closing_totals.get((revision.pk, "ESTABLISHMENT_OPENED"), 0),
             "closed": opening_closing_totals.get((revision.pk, "ESTABLISHMENT_CLOSED"), 0),
         }
-        for revision in revisions
+        for revision in analysis_revisions
     ]
 
     def cnae_counts(revision):
@@ -290,7 +324,7 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
         )
 
     current_cnaes = cnae_counts(selected_revision)
-    previous_cnaes = cnae_counts(previous_revision)
+    previous_cnaes = cnae_counts(start_revision)
     cnae_changes = [
         {
             "code": code or "—",
@@ -312,11 +346,18 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
     recent_companies = []
     if selected_revision:
         seen_company_ids = set()
-        recent_events = interval_events.select_related(
-            "company",
-            "establishment__company",
-            "participation__company",
-        ).order_by("-detected_at", "-id")[:200]
+        recent_events = []
+        for event_query in (company_events, establishment_events, participation_events):
+            recent_events.extend(
+                event_query.filter(to_revision=selected_revision)
+                .select_related(
+                    "company",
+                    "establishment__company",
+                    "participation__company",
+                )
+                .order_by("-detected_at", "-id")[:8]
+            )
+        recent_events.sort(key=lambda event: (event.detected_at, str(event.id)), reverse=True)
         for event in recent_events:
             company = event.company
             if not company and event.establishment:
@@ -326,9 +367,16 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
             if not company or company.pk in seen_company_ids:
                 continue
             seen_company_ids.add(company.pk)
-            recent_companies.append({"company": company, "event": event})
+            recent_companies.append({"company": company, "event": present_event(event)})
             if len(recent_companies) == 8:
                 break
+
+    capital_growth = capital_growth_ranking(company_events, selected_revision)
+    partner_growth = partner_growth_ranking(
+        participation_events,
+        start_revision,
+        selected_revision,
+    )
 
     return {
         "active_window": window,
@@ -345,13 +393,26 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
         "opening_closing_series": opening_closing_series,
         "cnae_growth": cnae_growth,
         "cnae_reduction": cnae_reduction,
+        "capital_growth": capital_growth,
+        "partner_growth": partner_growth,
         "recent_companies": recent_companies,
         "latest_revision": latest,
         "selected_revision": selected_revision,
+        "start_revision": start_revision,
         "revision_options": revisions,
         "municipalities": municipalities,
         "cnae_options": cnae_options,
         "filters": {
+            "start_competence": (
+                start_revision.window_competence.competence.strftime("%Y-%m")
+                if start_revision
+                else ""
+            ),
+            "end_competence": (
+                selected_revision.window_competence.competence.strftime("%Y-%m")
+                if selected_revision
+                else ""
+            ),
             "competence": (
                 selected_revision.window_competence.competence.strftime("%Y-%m")
                 if selected_revision
@@ -527,9 +588,12 @@ def company_detail_context(cnpj_basic: str, user=None) -> dict:
         "active_window": window,
         "company": company,
         "snapshot": company_snapshot,
+        "share_capital_display": (
+            format_brl_currency(company_snapshot.share_capital) if company_snapshot else "—"
+        ),
         "establishments": establishments,
         "partners": partners,
-        "events": events,
+        "events": present_events(list(events)),
         "latest_revision": latest,
         "is_watched": bool(
             user
@@ -621,8 +685,11 @@ def event_list_context(filters: dict[str, str]) -> dict:
             events = events.filter(_event_target_filter(digits))
     return {
         "active_window": window,
-        "events": events.order_by("-to_revision__window_competence__competence")[:200],
+        "events": present_events(
+            list(events.order_by("-to_revision__window_competence__competence")[:200])
+        ),
         "event_types": event_types,
+        "event_type_options": event_type_options(event_types),
         "filters": selected_filters,
     }
 

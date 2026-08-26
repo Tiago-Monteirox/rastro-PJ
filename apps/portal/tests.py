@@ -57,6 +57,28 @@ class PortalPublishedWindowTests(TestCase):
         self.assertEqual(len(response.context["opening_closing_series"]), 2)
         self.assertTrue(response.context["status_distribution"])
         self.assertTrue(response.context["size_distribution"])
+        self.assertContains(response, "Maiores aumentos de capital social")
+        self.assertContains(response, "Empresas que mais ampliaram o quadro societário")
+
+    def test_dashboard_ranks_growth_in_a_temporal_and_municipal_cut(self):
+        response = self.client.get(
+            "/",
+            {
+                "start_competence": "2026-07",
+                "end_competence": "2026-08",
+                "municipality": "3170206",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["filters"]["start_competence"], "2026-07")
+        self.assertEqual(response.context["filters"]["end_competence"], "2026-08")
+        self.assertEqual(response.context["capital_growth"][0]["cnpj_basic"], "11111111")
+        self.assertEqual(response.context["capital_growth"][0]["delta_display"], "R$ 50.000,00")
+        self.assertEqual(response.context["partner_growth"][0]["cnpj_basic"], "11111111")
+        self.assertEqual(response.context["partner_growth"][0]["previous"], 1)
+        self.assertEqual(response.context["partner_growth"][0]["current"], 2)
+        self.assertEqual(response.context["partner_growth"][0]["delta"], 1)
 
     def test_dashboard_filters_published_snapshot_by_competence_municipality_and_cnae(self):
         window = HistoricalWindow.objects.get(status=HistoricalWindow.Status.ACTIVE)
@@ -119,10 +141,13 @@ class PortalPublishedWindowTests(TestCase):
 
         self.assertContains(response, "Alfa Comércio Ltda")
         detail = self.client.get("/empresas/11111111/")
-        self.assertContains(detail, "SHARE_CAPITAL_CHANGED")
-        self.assertContains(detail, "ADDRESS_CHANGED")
-        self.assertContains(detail, "PARTNER_ADDED")
+        self.assertContains(detail, "Aumento de capital social")
+        self.assertContains(detail, "Mudança de endereço")
+        self.assertContains(detail, "Entrada de sócio")
+        self.assertContains(detail, "R$ 100.000,00")
+        self.assertContains(detail, "R$ 150.000,00")
         self.assertContains(detail, "Holding Exemplo")
+        self.assertNotContains(detail, "SHARE_CAPITAL_CHANGED")
         self.assertNotContains(detail, "partner_key")
         self.assertNotContains(detail, "***")
 
@@ -162,9 +187,9 @@ class PortalPublishedWindowTests(TestCase):
         response = self.client.get("/eventos/", {"event_type": "ESTABLISHMENT_CLOSED"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "ESTABLISHMENT_CLOSED")
+        self.assertContains(response, "Baixa de estabelecimento")
         self.assertEqual(
-            {event.event_type for event in response.context["events"]},
+            {item["record"].event_type for item in response.context["events"]},
             {"ESTABLISHMENT_CLOSED"},
         )
 
@@ -184,12 +209,12 @@ class PortalPublishedWindowTests(TestCase):
         self.assertEqual(company_events.status_code, 200)
         self.assertIn(
             "ADDRESS_CHANGED",
-            {event.event_type for event in company_events.context["events"]},
+            {item["record"].event_type for item in company_events.context["events"]},
         )
         self.assertEqual(establishment_events.status_code, 200)
         self.assertIn(
             "ADDRESS_CHANGED",
-            {event.event_type for event in establishment_events.context["events"]},
+            {item["record"].event_type for item in establishment_events.context["events"]},
         )
         self.assertEqual(invalid.status_code, 200)
         self.assertEqual(

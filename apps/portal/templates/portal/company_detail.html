@@ -10,7 +10,7 @@
   </section>
   {% if snapshot %}
     <section class="metrics four detail-metrics">
-      <article><span>Capital social</span><strong>R$ {{ snapshot.share_capital|default:"—" }}</strong></article>
+      <article><span>Capital social</span><strong>{{ share_capital_display }}</strong></article>
       <article><span>Natureza jurídica</span><strong>{{ snapshot.legal_nature_code|default:"—" }}</strong></article>
       <article><span>Porte</span><strong>{{ snapshot.company_size_code|default:"—" }}</strong></article>
       <article><span>Simples / MEI</span><strong>{{ snapshot.simples_optant|yesno:"Sim,Não,—" }} / {{ snapshot.mei_optant|yesno:"Sim,Não,—" }}</strong></article>
@@ -25,6 +25,6 @@
     </section>
   </div>
   <section class="panel"><span class="eyebrow">Evidência temporal</span><h2>Linha do tempo</h2>
-    {% if events %}<div class="timeline">{% for event in events %}<article><time>{{ event.from_revision.window_competence.competence|date:"m/Y" }} → {{ event.to_revision.window_competence.competence|date:"m/Y" }}</time><div><strong>{{ event.event_type }}</strong><small>{{ event.dimension }}{% if event.establishment %} · {{ event.establishment.cnpj }}{% endif %}</small><p><code>{{ event.previous_value|default:"—" }}</code> → <code>{{ event.new_value|default:"—" }}</code></p></div></article>{% endfor %}</div>{% else %}<p class="empty">Nenhuma alteração detectada na janela.</p>{% endif %}
+    {% if events %}<div class="timeline">{% for item in events %}{% with event=item.record %}<article><time>{{ event.from_revision.window_competence.competence|date:"m/Y" }} → {{ event.to_revision.window_competence.competence|date:"m/Y" }}</time><div><strong>{{ item.label }}</strong><small>{{ item.dimension_label }}{% if event.establishment %} · {{ event.establishment.cnpj }}{% endif %}</small><div class="event-diff"><span><small>Antes</small><strong>{{ item.previous }}</strong></span><i aria-hidden="true">→</i><span><small>Depois</small><strong>{{ item.current }}</strong></span></div>{% if event.source_effective_date %}<small>Data informada pela Receita: {{ event.source_effective_date|date:"d/m/Y" }}</small>{% endif %}</div></article>{% endwith %}{% endfor %}</div>{% else %}<p class="empty">Nenhuma alteração detectada na janela.</p>{% endif %}
   </section>
 {% endblock %}
