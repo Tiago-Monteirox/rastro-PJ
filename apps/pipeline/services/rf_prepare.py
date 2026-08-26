@@ -14,6 +14,14 @@ from pathlib import Path
 
 import duckdb
 
+from apps.registry.cnpj import (
+    InvalidCNPJError,
+    extract_cnpj_basic,
+    parse_cnpj_identifier,
+    validate_cnpj,
+    validate_cnpj_basic,
+)
+
 from ..contracts import (
     CONTRACT_VERSION,
     TABLE_CONTRACTS,
@@ -424,12 +432,13 @@ def _discover_cohort(
                     )
                 connection.execute(
                     "INSERT OR IGNORE INTO cohort "
-                    "SELECT e.cnpj_basic || e.cnpj_order || e.cnpj_check_digits "
+                    "SELECT upper(trim(coalesce(e.cnpj_basic, ''))) || "
+                    "upper(trim(coalesce(e.cnpj_order, ''))) || "
+                    "trim(coalesce(e.cnpj_check_digits, '')) "
                     f"FROM {_read_csv_sql(extracted.path, ESTABLISHMENT_COLUMNS)} e "
-                    "JOIN scope_tom s ON s.tom = e.municipality_tom_code "
-                    "WHERE length(e.cnpj_basic)=8 AND length(e.cnpj_order)=4 "
-                    "AND length(e.cnpj_check_digits)=2"
+                    "JOIN scope_tom s ON s.tom = trim(e.municipality_tom_code)"
                 )
+    _validate_cohort_cnpjs(connection)
     connection.execute(
         "CREATE OR REPLACE TABLE cohort_basics AS "
         "SELECT DISTINCT substr(cnpj, 1, 8) AS cnpj_basic FROM cohort"
@@ -555,9 +564,12 @@ def _load_filtered_tables(
                     )
                 relation = _read_csv_sql(extracted.path, columns)
                 if key == "cnpj":
-                    join = "c.cnpj = r.cnpj_basic || r.cnpj_order || r.cnpj_check_digits"
+                    join = (
+                        "c.cnpj = upper(trim(r.cnpj_basic)) || upper(trim(r.cnpj_order)) || "
+                        "trim(r.cnpj_check_digits)"
+                    )
                 else:
-                    join = f"c.{key} = r.{key}"
+                    join = f"c.{key} = upper(trim(r.{key}))"
                 connection.execute(
                     f"INSERT INTO {table} SELECT r.* FROM {relation} r "
                     f"JOIN {cohort_table} c ON {join}"
@@ -573,7 +585,7 @@ def _load_filtered_tables(
         connection.execute(
             "INSERT INTO simples_raw SELECT r.* FROM "
             f"{_read_csv_sql(extracted.path, SIMPLES_COLUMNS)} r "
-            "JOIN cohort_basics c ON c.cnpj_basic = r.cnpj_basic"
+            "JOIN cohort_basics c ON c.cnpj_basic = upper(trim(r.cnpj_basic))"
         )
     for table, column in (
         ("establishments_raw", "registration_status_date"),
@@ -593,21 +605,21 @@ def _load_filtered_tables(
 
 
 def _company_records(connection, competence: date) -> list[dict]:
-    simples = {
-        row[0]: row[1:]
-        for row in connection.execute(
-            "SELECT cnpj_basic, simples_optant, simples_option_date, "
-            "simples_exclusion_date, mei_optant, mei_option_date, mei_exclusion_date "
-            "FROM simples_raw"
-        ).fetchall()
-    }
+    simples = {}
+    for row in connection.execute(
+        "SELECT cnpj_basic, simples_optant, simples_option_date, "
+        "simples_exclusion_date, mei_optant, mei_option_date, mei_exclusion_date "
+        "FROM simples_raw"
+    ).fetchall():
+        simples[_required_cnpj_basic(row[0], "Simples")] = row[1:]
     records = []
     observed = set()
     for row in connection.execute(
         "SELECT cnpj_basic, legal_name, legal_nature_code, share_capital, company_size_code "
         "FROM companies_raw ORDER BY cnpj_basic"
     ).fetchall():
-        cnpj_basic, legal_name, nature, capital, size = row
+        raw_cnpj_basic, legal_name, nature, capital, size = row
+        cnpj_basic = _required_cnpj_basic(raw_cnpj_basic, "empresa")
         if cnpj_basic in observed:
             raise ReceitaPreparationError(f"Empresa duplicada: {cnpj_basic}.")
         observed.add(cnpj_basic)
@@ -633,8 +645,9 @@ def _company_records(connection, competence: date) -> list[dict]:
         records.append(record)
     missing_for_establishments = connection.execute(
         "SELECT count(*) FROM ("
-        "SELECT DISTINCT e.cnpj_basic FROM establishments_raw e "
-        "LEFT JOIN companies_raw c ON c.cnpj_basic = e.cnpj_basic "
+        "SELECT DISTINCT upper(trim(e.cnpj_basic)) AS cnpj_basic FROM establishments_raw e "
+        "LEFT JOIN companies_raw c "
+        "ON upper(trim(c.cnpj_basic)) = upper(trim(e.cnpj_basic)) "
         "WHERE c.cnpj_basic IS NULL"
         ") missing"
     ).fetchone()[0]
@@ -684,11 +697,19 @@ def _establishment_records(
             uf,
             tom,
         ) = row
+        raw_cnpj = f"{_text(basic)}{_text(order)}{_text(digits)}"
+        try:
+            cnpj = validate_cnpj(raw_cnpj)
+        except InvalidCNPJError as error:
+            raise ReceitaPreparationError(
+                f"CNPJ de estabelecimento inválido: {raw_cnpj}."
+            ) from error
+        cnpj_basic = extract_cnpj_basic(cnpj)
         identity = resolver.resolve(_text(tom), _text(uf))
         trade_name = remove_personal_document_sequences(_text(trade_name))
         record = {
-            "cnpj": f"{basic}{order}{digits}",
-            "cnpj_basic": basic,
+            "cnpj": cnpj,
+            "cnpj_basic": cnpj_basic,
             "branch_type": _text(branch_type),
             "trade_name": trade_name,
             "trade_name_search": normalize_search_text(trade_name),
@@ -723,7 +744,8 @@ def _partner_records(connection, competence: date, secret: str, warnings: list[s
         "qualification_code, entry_date, country_code FROM partners_raw "
         "ORDER BY cnpj_basic, partner_source_type, display_name, source_identifier"
     ).fetchall():
-        basic, source_type, display_name, source_id, qualification, entry_date, country = row
+        raw_basic, source_type, display_name, source_id, qualification, entry_date, country = row
+        basic = _required_cnpj_basic(raw_basic, "participação")
         display_name = remove_personal_document_sequences(_text(display_name)) or "NOME SUPRIMIDO"
         partner_type = {"1": "PJ", "2": "PF", "3": "FOREIGN"}.get(_text(source_type))
         if not partner_type:
@@ -762,6 +784,7 @@ def _partner_records(connection, competence: date, secret: str, warnings: list[s
 def _partner_identity(
     *, basic, partner_type, display_name, source_identifier, country_code, secret
 ) -> tuple[str, str | None, str | None]:
+    basic = validate_cnpj_basic(basic)
     warning = None
     if partner_type == "PF":
         identity = source_identifier or normalize_search_text(display_name)
@@ -771,8 +794,9 @@ def _partner_identity(
             secret.encode(), f"PF\x1f{basic}\x1f{identity}".encode(), hashlib.sha256
         ).hexdigest()
         return digest, None, warning
-    if partner_type == "PJ" and source_identifier.isdigit() and len(source_identifier) in (8, 14):
-        partner_cnpj_basic = source_identifier[:8]
+    parsed_identifier = parse_cnpj_identifier(source_identifier) if partner_type == "PJ" else None
+    if parsed_identifier:
+        partner_cnpj_basic = extract_cnpj_basic(parsed_identifier)
         raw = f"PJ\x1f{basic}\x1f{partner_cnpj_basic}"
         return hashlib.sha256(raw.encode()).hexdigest(), partner_cnpj_basic, None
     identity = (
@@ -782,6 +806,31 @@ def _partner_identity(
     if partner_type == "PJ":
         warning = f"PJ_WITHOUT_VALID_CNPJ:{basic}"
     return hashlib.sha256(identity.encode()).hexdigest(), None, warning
+
+
+def _validate_cohort_cnpjs(connection) -> None:
+    cursor = connection.execute("SELECT cnpj FROM cohort ORDER BY cnpj")
+    invalid_count = 0
+    examples = []
+    while rows := cursor.fetchmany(10_000):
+        for (cnpj,) in rows:
+            try:
+                validate_cnpj(cnpj)
+            except InvalidCNPJError:
+                invalid_count += 1
+                if len(examples) < 5:
+                    examples.append(cnpj)
+    if invalid_count:
+        raise ReceitaPreparationError(
+            f"Coorte contém {invalid_count} CNPJ(s) inválido(s); exemplos={examples}."
+        )
+
+
+def _required_cnpj_basic(value: object, entity: str) -> str:
+    try:
+        return validate_cnpj_basic(value)
+    except InvalidCNPJError as error:
+        raise ReceitaPreparationError(f"CNPJ básico inválido em {entity}: {value}.") from error
 
 
 def _verify_sources(directory: Path) -> tuple[SourceManifest, ...]:

@@ -113,13 +113,15 @@ def _records_by_competence() -> dict[str, dict[str, list[dict]]]:
                 _company("33333333", "Gama Indústria Ltda", july, "90000.00"),
                 _company("44444444", "Delta Logística Ltda", july, "120000.00"),
                 _company("66666666", "Zeta Consultoria Ltda", july, "30000.00"),
+                _company("ABCDEF12", "Ômega Alfanumérica Ltda", july, "75000.00"),
             ],
             "establishments": [
                 _establishment("11111111000191", "11111111", july, "5403", "3170206", "MG", True),
-                _establishment("22222222000182", "22222222", july, "5401", "3170107", "MG", True),
-                _establishment("33333333000173", "33333333", july, "4069", "3103504", "MG", True),
-                _establishment("44444444000164", "44444444", july, "7107", "3550308", "SP", False),
-                _establishment("66666666000146", "66666666", july, "5403", "3170206", "MG", True),
+                _establishment("22222222000191", "22222222", july, "5401", "3170107", "MG", True),
+                _establishment("33333333000191", "33333333", july, "4069", "3103504", "MG", True),
+                _establishment("44444444000191", "44444444", july, "7107", "3550308", "SP", False),
+                _establishment("66666666000191", "66666666", july, "5403", "3170206", "MG", True),
+                _establishment("ABCDEF12345680", "ABCDEF12", july, "5403", "3170206", "MG", True),
             ],
             "partners": [
                 _partner("11111111", "PF", "Sócia Alfa", july),
@@ -134,6 +136,7 @@ def _records_by_competence() -> dict[str, dict[str, list[dict]]]:
                 _company("44444444", "Delta Logística Ltda", august, "120000.00"),
                 _company("55555555", "Épsilon Tecnologia Ltda", august, "25000.00"),
                 _company("66666666", "Zeta Consultoria Ltda", august, "30000.00"),
+                _company("ABCDEF12", "Ômega Alfanumérica Ltda", august, "75000.00"),
             ],
             "establishments": [
                 _establishment(
@@ -148,7 +151,7 @@ def _records_by_competence() -> dict[str, dict[str, list[dict]]]:
                     main_cnae_code="4751201",
                 ),
                 _establishment(
-                    "22222222000182",
+                    "22222222000191",
                     "22222222",
                     august,
                     "5401",
@@ -159,11 +162,11 @@ def _records_by_competence() -> dict[str, dict[str, list[dict]]]:
                     registration_status_date=date(2026, 7, 15),
                 ),
                 _establishment(
-                    "33333333000173", "33333333", august, "7107", "3550308", "SP", False
+                    "33333333000191", "33333333", august, "7107", "3550308", "SP", False
                 ),
-                _establishment("44444444000164", "44444444", august, "4683", "3134202", "MG", True),
+                _establishment("44444444000191", "44444444", august, "4683", "3134202", "MG", True),
                 _establishment(
-                    "55555555000155",
+                    "55555555000191",
                     "55555555",
                     august,
                     "5403",
@@ -173,7 +176,7 @@ def _records_by_competence() -> dict[str, dict[str, list[dict]]]:
                     activity_start_date=date(2026, 7, 20),
                 ),
                 _establishment(
-                    "66666666000146",
+                    "66666666000191",
                     "66666666",
                     august,
                     "5403",
@@ -183,6 +186,7 @@ def _records_by_competence() -> dict[str, dict[str, list[dict]]]:
                     registration_status_code="03",
                     registration_status_date=date(2026, 7, 22),
                 ),
+                _establishment("ABCDEF12345680", "ABCDEF12", august, "5403", "3170206", "MG", True),
             ],
             "partners": [
                 _partner("11111111", "PF", "Sócia Alfa", august),

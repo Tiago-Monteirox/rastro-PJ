@@ -19,6 +19,7 @@ from django.utils.dateparse import parse_datetime
 from apps.changes.models import ChangeEvent, RegionalMonthlyMetric
 from apps.changes.services import QualityCandidate, compare_snapshots
 from apps.geography.models import GeographicScope, Municipality, ScopeMunicipality
+from apps.registry.cnpj import is_canonical_cnpj, is_canonical_cnpj_basic
 from apps.registry.models import (
     Company,
     CompanySnapshot,
@@ -42,8 +43,6 @@ from .normalization import canonical_record_hash
 from .package_validation import ValidatedPackage, ValidatedWindow, validate_window_package
 
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
-DIGITS_8_PATTERN = re.compile(r"^[0-9]{8}$")
-DIGITS_14_PATTERN = re.compile(r"^[0-9]{14}$")
 WARNING_RATE_OVERRIDES = {
     "LATE_FIRST_SEEN": 0.005,
     "SOURCE_ZERO_DATE": 0.0025,
@@ -1107,10 +1106,10 @@ def _validate_business_rows(rows: dict[str, list[dict]], scope_pairs: set) -> No
                 raise WindowImportError("Hash de registro divergente.")
 
     for row in rows["companies"]:
-        if not DIGITS_8_PATTERN.fullmatch(row["cnpj_basic"]):
+        if not is_canonical_cnpj_basic(row["cnpj_basic"]):
             raise WindowImportError("CNPJ básico inválido no pacote.")
     for row in rows["establishments"]:
-        if not DIGITS_14_PATTERN.fullmatch(row["cnpj"]):
+        if not is_canonical_cnpj(row["cnpj"]):
             raise WindowImportError("CNPJ completo inválido no pacote.")
         if row["cnpj"][:8] != row["cnpj_basic"]:
             raise WindowImportError("CNPJ básico diverge do estabelecimento.")
@@ -1118,13 +1117,13 @@ def _validate_business_rows(rows: dict[str, list[dict]], scope_pairs: set) -> No
         if row["is_in_region"] != (pair in scope_pairs):
             raise WindowImportError("Indicador regional diverge do recorte canônico.")
     for row in rows["partners"]:
-        if not DIGITS_8_PATTERN.fullmatch(row["cnpj_basic"]):
+        if not is_canonical_cnpj_basic(row["cnpj_basic"]):
             raise WindowImportError("Participação com CNPJ básico inválido.")
         if not SHA256_PATTERN.fullmatch(row["partner_key"]):
             raise WindowImportError("Chave de participação inválida.")
         if row["partner_type"] not in PartnerParticipation.PartnerType.values:
             raise WindowImportError("Tipo de participação inválido.")
-        if row["partner_cnpj_basic"] and not DIGITS_8_PATTERN.fullmatch(row["partner_cnpj_basic"]):
+        if row["partner_cnpj_basic"] and not is_canonical_cnpj_basic(row["partner_cnpj_basic"]):
             raise WindowImportError("CNPJ básico de sócio PJ inválido.")
 
 

@@ -14,7 +14,7 @@ from django.test import SimpleTestCase, TestCase
 from apps.changes.models import ChangeEvent, RegionalMonthlyMetric
 from apps.changes.services import QualityCandidate, compare_snapshots
 from apps.geography.models import GeographicScope
-from apps.registry.models import CompanySnapshot
+from apps.registry.models import Company, CompanySnapshot, Establishment
 from apps.test_support import create_import_batch, create_revision, create_scope, create_window
 
 from .contracts import (
@@ -56,12 +56,14 @@ from .services.normalization import (
 from .services.rf_prepare import (
     ReceitaPreparationError,
     _company_records,
+    _establishment_records,
     _extracted_archive,
     _partner_identity,
     _read_csv_sql,
     _reusable_cohort,
     _reusable_package,
     _rf_date,
+    _validate_cohort_cnpjs,
 )
 from .services.rf_sources import inventory_competence
 from .services.synthetic_window import generate_synthetic_window
@@ -732,7 +734,7 @@ class PackageContractTests(SimpleTestCase):
             basic="11111111",
             partner_type="PJ",
             display_name="Empresa Sócia Ltda",
-            source_identifier="66666666000146",
+            source_identifier="66666666000191",
             country_code=None,
             secret="segredo-de-teste",
         )
@@ -750,6 +752,84 @@ class PackageContractTests(SimpleTestCase):
         self.assertEqual(august_root, "66666666")
         self.assertIsNone(july_warning)
         self.assertIsNone(august_warning)
+
+    def test_pj_partner_identity_accepts_alphanumeric_full_cnpj_and_lowercase_root(self):
+        full_key, full_root, full_warning = _partner_identity(
+            basic="11111111",
+            partner_type="PJ",
+            display_name="Empresa Sócia Alfanumérica Ltda",
+            source_identifier="AB.CDE.F12/3456-80",
+            country_code=None,
+            secret="segredo-de-teste",
+        )
+        root_key, root, root_warning = _partner_identity(
+            basic="11111111",
+            partner_type="PJ",
+            display_name="Empresa Sócia Alfanumérica Ltda",
+            source_identifier="abcdef12",
+            country_code=None,
+            secret="segredo-de-teste",
+        )
+
+        self.assertEqual(full_key, root_key)
+        self.assertEqual(full_root, "ABCDEF12")
+        self.assertEqual(root, "ABCDEF12")
+        self.assertIsNone(full_warning)
+        self.assertIsNone(root_warning)
+
+    def test_cohort_validation_accepts_alphanumeric_cnpj_and_rejects_bad_dv(self):
+        connection = duckdb.connect(":memory:")
+        try:
+            connection.execute("CREATE TABLE cohort(cnpj VARCHAR PRIMARY KEY)")
+            connection.execute("INSERT INTO cohort VALUES ('ABCDEF12345680')")
+            _validate_cohort_cnpjs(connection)
+
+            connection.execute("INSERT INTO cohort VALUES ('ABCDEF12345699')")
+            with self.assertRaisesMessage(ReceitaPreparationError, "1 CNPJ(s) inválido(s)"):
+                _validate_cohort_cnpjs(connection)
+        finally:
+            connection.close()
+
+    def test_establishment_preparation_normalizes_letters_in_the_order(self):
+        connection = duckdb.connect(":memory:")
+        try:
+            connection.execute(
+                "CREATE TABLE establishments_raw("
+                "cnpj_basic VARCHAR, cnpj_order VARCHAR, cnpj_check_digits VARCHAR, "
+                "branch_type VARCHAR, trade_name VARCHAR, registration_status_code VARCHAR, "
+                "registration_status_date VARCHAR, registration_status_reason_code VARCHAR, "
+                "activity_start_date VARCHAR, main_cnae_code VARCHAR, street_type VARCHAR, "
+                "street_name VARCHAR, street_number VARCHAR, address_complement VARCHAR, "
+                "neighborhood VARCHAR, postal_code VARCHAR, state_code VARCHAR, "
+                "municipality_tom_code VARCHAR)"
+            )
+            connection.execute(
+                "INSERT INTO establishments_raw VALUES ("
+                "'87654321', 'a001', '10', '2', 'Unidade alfanumérica', '02', '', '', "
+                "'20260801', '4711302', 'AVENIDA', 'BRASIL', '100', '', 'CENTRO', "
+                "'38400000', 'MG', '5403')"
+            )
+            resolver = MunicipalityResolver(
+                tom_names={"5403": "UBERLANDIA"},
+                ibge_catalog=IbgeCatalog(
+                    path=Path("ibge.json"),
+                    sha256="a" * 64,
+                    entries={("uberlandia", "MG"): ("3170206", "Uberlândia")},
+                ),
+            )
+
+            records = _establishment_records(
+                connection,
+                date(2026, 8, 1),
+                resolver,
+                {"5403"},
+            )
+
+            self.assertEqual(records[0]["cnpj"], "87654321A00110")
+            self.assertEqual(records[0]["cnpj_basic"], "87654321")
+            self.assertTrue(records[0]["is_in_region"])
+        finally:
+            connection.close()
 
     def test_synthetic_window_has_two_valid_consecutive_packages(self):
         with TemporaryDirectory() as temporary_directory:
@@ -783,6 +863,11 @@ class PackageContractTests(SimpleTestCase):
                 params=[str(establishments)],
             ).fetchone()[0]
             self.assertGreaterEqual(scenarios, 2)
+            alphanumeric = duckdb.sql(
+                "SELECT count(*) FROM read_parquet(?) WHERE cnpj = 'ABCDEF12345680'",
+                params=[str(establishments)],
+            ).fetchone()[0]
+            self.assertEqual(alphanumeric, 1)
 
 
 class WindowImportTests(TestCase):
@@ -830,6 +915,8 @@ class WindowImportTests(TestCase):
             self.expected_event_types,
         )
         self.assertEqual(HistoricalWindow.objects.get().status, HistoricalWindow.Status.ACTIVE)
+        self.assertTrue(Company.objects.filter(cnpj_basic="ABCDEF12").exists())
+        self.assertTrue(Establishment.objects.filter(cnpj="ABCDEF12345680").exists())
         self.assertEqual(ChangeEvent.objects.count(), 10)
         self.assertEqual(PackageArtifact.objects.count(), 8)
         self.assertEqual(SourceArtifact.objects.count(), 0)
