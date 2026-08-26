@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
+from apps.registry.cnpj import parse_cnpj_basic
 from apps.registry.models import Company
 
 from .models import Watchlist
@@ -70,7 +71,7 @@ def watchlist_list(request):
 @login_required
 @require_POST
 def watchlist_toggle(request, cnpj_basic):
-    company = get_object_or_404(Company, cnpj_basic=cnpj_basic)
+    company = get_object_or_404(Company, cnpj_basic=parse_cnpj_basic(cnpj_basic) or "")
     if request.POST.get("action") == "remove":
         Watchlist.objects.filter(user=request.user, company=company).delete()
     else:

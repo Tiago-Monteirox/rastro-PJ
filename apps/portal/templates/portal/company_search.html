@@ -1,4 +1,5 @@
 {% extends "portal/base.html" %}
+{% load cnpj %}
 {% block title %}Pesquisa de empresas{% endblock %}
 {% block content %}
   <section class="page-heading"><span class="eyebrow">Consulta</span><h1>Empresas e estabelecimentos</h1><p>Busque por CNPJ básico ou completo, razão social ou nome fantasia e refine pelo estabelecimento regional.</p></section>
@@ -39,7 +40,7 @@
         <div class="result-list">
           {% for item in results %}
             <a href="{% url 'portal:company-detail' item.company.cnpj_basic %}">
-              <span><strong>{{ item.snapshot.legal_name }}</strong><small>CNPJ básico {{ item.company.cnpj_basic }}</small></span>
+              <span><strong>{{ item.snapshot.legal_name }}</strong><small>CNPJ básico {{ item.company.cnpj_basic|cnpj_basic }}</small></span>
               <span><strong>{{ item.regional_establishments }}</strong><small>estabelecimento(s) regional(is)</small></span>
             </a>
           {% endfor %}

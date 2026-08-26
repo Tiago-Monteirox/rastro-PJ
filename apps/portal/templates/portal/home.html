@@ -1,4 +1,5 @@
 {% extends "portal/base.html" %}
+{% load cnpj %}
 {% block content %}
   <section class="hero compact-hero">
     <div>
@@ -108,7 +109,7 @@
         <div class="ranking-list">
           {% for item in capital_growth %}
             <a href="{% url 'portal:company-detail' item.cnpj_basic %}">
-              <span><strong>{{ item.legal_name }}</strong><small>CNPJ básico {{ item.cnpj_basic }} · {{ item.previous_display }} → {{ item.current_display }}</small></span>
+              <span><strong>{{ item.legal_name }}</strong><small>CNPJ básico {{ item.cnpj_basic|cnpj_basic }} · {{ item.previous_display }} → {{ item.current_display }}</small></span>
               <strong class="positive-value">+{{ item.delta_display }}</strong>
             </a>
           {% endfor %}
@@ -121,7 +122,7 @@
         <div class="ranking-list">
           {% for item in partner_growth %}
             <a href="{% url 'portal:company-detail' item.cnpj_basic %}">
-              <span><strong>{{ item.legal_name }}</strong><small>CNPJ básico {{ item.cnpj_basic }} · {{ item.previous }} → {{ item.current }} sócios · {{ item.added }} entradas e {{ item.removed }} saídas</small></span>
+              <span><strong>{{ item.legal_name }}</strong><small>CNPJ básico {{ item.cnpj_basic|cnpj_basic }} · {{ item.previous }} → {{ item.current }} sócios · {{ item.added }} entradas e {{ item.removed }} saídas</small></span>
               <strong class="positive-value">+{{ item.delta }}</strong>
             </a>
           {% endfor %}
@@ -131,7 +132,7 @@
   </div>
   <section class="panel">
     <div class="section-heading"><div><span class="eyebrow">Mudanças recentes</span><h2>Empresas alteradas no intervalo</h2></div><a href="{% url 'portal:event-list' %}?competence={{ filters.end_competence }}">Ver eventos</a></div>
-    {% if recent_companies %}<div class="result-list">{% for item in recent_companies %}<a href="{% url 'portal:company-detail' item.company.cnpj_basic %}"><span><strong>{{ item.company.cnpj_basic }}</strong><small>{{ item.event.label }}</small></span><span><small>{{ item.event.record.from_revision.window_competence.competence|date:"m/Y" }} → {{ item.event.record.to_revision.window_competence.competence|date:"m/Y" }}</small></span></a>{% endfor %}</div>{% else %}<p class="empty">Nenhuma empresa alterada nesse intervalo.</p>{% endif %}
+    {% if recent_companies %}<div class="result-list">{% for item in recent_companies %}<a href="{% url 'portal:company-detail' item.company.cnpj_basic %}"><span><strong>{{ item.company.cnpj_basic|cnpj_basic }}</strong><small>{{ item.event.label }}</small></span><span><small>{{ item.event.record.from_revision.window_competence.competence|date:"m/Y" }} → {{ item.event.record.to_revision.window_competence.competence|date:"m/Y" }}</small></span></a>{% endfor %}</div>{% else %}<p class="empty">Nenhuma empresa alterada nesse intervalo.</p>{% endif %}
   </section>
   <div class="two-columns">
     <section class="panel">

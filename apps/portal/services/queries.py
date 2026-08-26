@@ -14,6 +14,11 @@ from apps.pipeline.models import (
     ImportBatch,
 )
 from apps.pipeline.services.normalization import normalize_search_text
+from apps.registry.cnpj import (
+    looks_like_cnpj_identifier,
+    parse_cnpj_basic,
+    parse_cnpj_identifier,
+)
 from apps.registry.models import (
     Company,
     CompanySnapshot,
@@ -473,13 +478,15 @@ def search_company_context(query: str, filters: dict[str, str] | None = None) ->
         return base_context
 
     company_ids = set()
-    digits = re.sub(r"\D", "", query)
-    is_cnpj_query = bool(re.fullmatch(r"[\d\s./-]+", query)) and len(digits) in (8, 14)
-    if is_cnpj_query and len(digits) == 8:
-        company_ids.update(Company.objects.filter(cnpj_basic=digits).values_list("id", flat=True))
-    elif is_cnpj_query and len(digits) == 14:
+    is_cnpj_query = looks_like_cnpj_identifier(query)
+    cnpj_identifier = parse_cnpj_identifier(query) if is_cnpj_query else None
+    if cnpj_identifier and len(cnpj_identifier) == 8:
         company_ids.update(
-            Establishment.objects.filter(cnpj=digits).values_list("company_id", flat=True)
+            Company.objects.filter(cnpj_basic=cnpj_identifier).values_list("id", flat=True)
+        )
+    elif cnpj_identifier and len(cnpj_identifier) == 14:
+        company_ids.update(
+            Establishment.objects.filter(cnpj=cnpj_identifier).values_list("company_id", flat=True)
         )
     if len(query) >= 2 and not is_cnpj_query:
         normalized = normalize_search_text(query)
@@ -545,7 +552,7 @@ def search_company_context(query: str, filters: dict[str, str] | None = None) ->
 
 
 def company_detail_context(cnpj_basic: str, user=None) -> dict:
-    company = get_object_or_404(Company, cnpj_basic=cnpj_basic)
+    company = get_object_or_404(Company, cnpj_basic=parse_cnpj_basic(cnpj_basic) or "")
     window = _active_window()
     revisions = _active_revisions(window)
     latest = revisions.last() if window else None
@@ -603,9 +610,9 @@ def company_detail_context(cnpj_basic: str, user=None) -> dict:
     }
 
 
-def _event_target_filter(cnpj_digits: str) -> Q:
-    if len(cnpj_digits) == 8:
-        company = Company.objects.filter(cnpj_basic=cnpj_digits).first()
+def _event_target_filter(cnpj_identifier: str) -> Q:
+    if len(cnpj_identifier) == 8:
+        company = Company.objects.filter(cnpj_basic=cnpj_identifier).first()
         if not company:
             return Q(pk__in=())
         establishment_ids = list(company.establishments.values_list("id", flat=True))
@@ -617,7 +624,9 @@ def _event_target_filter(cnpj_digits: str) -> Q:
             target_filter |= Q(participation_id__in=participation_ids)
         return target_filter
 
-    establishment = Establishment.objects.select_related("company").filter(cnpj=cnpj_digits).first()
+    establishment = (
+        Establishment.objects.select_related("company").filter(cnpj=cnpj_identifier).first()
+    )
     if not establishment:
         return Q(pk__in=())
     participation_ids = list(
@@ -659,9 +668,9 @@ def event_list_context(filters: dict[str, str]) -> dict:
         ),
         "cnpj": "",
     }
-    cnpj_digits = re.sub(r"\D", "", filters.get("cnpj", ""))
-    if len(cnpj_digits) in (8, 14):
-        selected_filters["cnpj"] = cnpj_digits
+    cnpj_identifier = parse_cnpj_identifier(filters.get("cnpj", ""))
+    if cnpj_identifier:
+        selected_filters["cnpj"] = cnpj_identifier
 
     events = ChangeEvent.objects.none()
     if window:
@@ -681,8 +690,7 @@ def event_list_context(filters: dict[str, str]) -> dict:
                 to_revision__window_competence__competence=(f"{selected_filters['competence']}-01")
             )
         if selected_filters["cnpj"]:
-            digits = selected_filters["cnpj"]
-            events = events.filter(_event_target_filter(digits))
+            events = events.filter(_event_target_filter(selected_filters["cnpj"]))
     return {
         "active_window": window,
         "events": present_events(

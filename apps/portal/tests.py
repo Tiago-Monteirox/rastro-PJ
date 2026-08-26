@@ -158,6 +158,17 @@ class PortalPublishedWindowTests(TestCase):
         self.assertContains(formatted_cnpj, "Alfa Comércio Ltda")
         self.assertContains(inner_legal_name, "Alfa Comércio Ltda")
 
+    def test_search_detail_and_formatting_support_alphanumeric_cnpj(self):
+        full = self.client.get("/empresas/", {"q": "AB.CDE.F12/3456-80"})
+        root = self.client.get("/empresas/", {"q": "abcdef12"})
+        detail = self.client.get("/empresas/abcdef12/")
+
+        self.assertContains(full, "Ômega Alfanumérica Ltda")
+        self.assertContains(root, "Ômega Alfanumérica Ltda")
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(detail, "AB.CDE.F12")
+        self.assertContains(detail, "AB.CDE.F12/3456-80")
+
     def test_search_filters_by_regional_municipality_status_and_cnae(self):
         response = self.client.get(
             "/empresas/",
@@ -205,6 +216,7 @@ class PortalPublishedWindowTests(TestCase):
                 "cnpj": "123",
             },
         )
+        alphanumeric = self.client.get("/eventos/", {"cnpj": "ab.cde.f12"})
 
         self.assertEqual(company_events.status_code, 200)
         self.assertIn(
@@ -217,6 +229,7 @@ class PortalPublishedWindowTests(TestCase):
             {item["record"].event_type for item in establishment_events.context["events"]},
         )
         self.assertEqual(invalid.status_code, 200)
+        self.assertEqual(alphanumeric.context["filters"]["cnpj"], "ABCDEF12")
         self.assertEqual(
             invalid.context["filters"],
             {"event_type": "", "entity_type": "", "competence": "", "cnpj": ""},
@@ -251,6 +264,17 @@ class PortalPublishedWindowTests(TestCase):
         removed = self.client.post("/monitoradas/11111111/", {"action": "remove"})
         self.assertEqual(removed.status_code, 302)
         self.assertFalse(Watchlist.objects.filter(user=user).exists())
+
+    def test_watchlist_accepts_lowercase_alphanumeric_route(self):
+        user = get_user_model().objects.create_user(username="alfanumerico")
+        self.client.force_login(user)
+
+        response = self.client.post("/monitoradas/abcdef12/", {"action": "add"})
+
+        self.assertRedirects(response, "/empresas/ABCDEF12/")
+        self.assertTrue(
+            Watchlist.objects.filter(user=user, company__cnpj_basic="ABCDEF12").exists()
+        )
 
     def test_watchlist_change_rejects_get(self):
         user = get_user_model().objects.create_user(username="gabriel")

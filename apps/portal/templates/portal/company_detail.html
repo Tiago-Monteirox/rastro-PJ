@@ -1,8 +1,9 @@
 {% extends "portal/base.html" %}
-{% block title %}{% if snapshot %}{{ snapshot.legal_name }}{% else %}Empresa {{ company.cnpj_basic }}{% endif %}{% endblock %}
+{% load cnpj %}
+{% block title %}{% if snapshot %}{{ snapshot.legal_name }}{% else %}Empresa {{ company.cnpj_basic|cnpj_basic }}{% endif %}{% endblock %}
 {% block content %}
   <section class="page-heading detail-heading">
-    <div><span class="eyebrow">CNPJ básico {{ company.cnpj_basic }}</span><h1>{% if snapshot %}{{ snapshot.legal_name }}{% else %}Empresa sem fotografia atual{% endif %}</h1></div>
+    <div><span class="eyebrow">CNPJ básico {{ company.cnpj_basic|cnpj_basic }}</span><h1>{% if snapshot %}{{ snapshot.legal_name }}{% else %}Empresa sem fotografia atual{% endif %}</h1></div>
     <div class="heading-actions">
       {% if latest_revision %}<span class="badge published">Competência {{ latest_revision.window_competence.competence|date:"m/Y" }}</span>{% endif %}
       {% if user.is_authenticated %}<form action="{% url 'portal:watchlist-toggle' company.cnpj_basic %}" method="post">{% csrf_token %}<input type="hidden" name="action" value="{% if is_watched %}remove{% else %}add{% endif %}"><button type="submit" class="secondary-button">{% if is_watched %}Remover das monitoradas{% else %}Monitorar empresa{% endif %}</button></form>{% endif %}
@@ -18,13 +19,13 @@
   {% endif %}
   <div class="two-columns detail-grid">
     <section class="panel"><span class="eyebrow">Localização</span><h2>Estabelecimentos</h2>
-      {% if establishments %}<div class="card-list">{% for item in establishments %}<article><div><strong>{{ item.trade_name|default:item.establishment.cnpj }}</strong><small>{{ item.establishment.cnpj }} · {{ item.municipality.name }}/{{ item.state_code }}</small></div><span class="badge {% if item.is_in_region %}published{% endif %}">{% if item.is_in_region %}Na região{% else %}Fora da região{% endif %}</span><p>{{ item.street_type }} {{ item.street_name }}, {{ item.street_number }} — {{ item.neighborhood }}</p><small>Situação {{ item.registration_status_code }} · CNAE {{ item.main_cnae_code|default:"—" }}</small></article>{% endfor %}</div>{% else %}<p class="empty">Sem estabelecimentos nesta competência.</p>{% endif %}
+      {% if establishments %}<div class="card-list">{% for item in establishments %}<article><div><strong>{% if item.trade_name %}{{ item.trade_name }}{% else %}{{ item.establishment.cnpj|cnpj }}{% endif %}</strong><small>{{ item.establishment.cnpj|cnpj }} · {{ item.municipality.name }}/{{ item.state_code }}</small></div><span class="badge {% if item.is_in_region %}published{% endif %}">{% if item.is_in_region %}Na região{% else %}Fora da região{% endif %}</span><p>{{ item.street_type }} {{ item.street_name }}, {{ item.street_number }} — {{ item.neighborhood }}</p><small>Situação {{ item.registration_status_code }} · CNAE {{ item.main_cnae_code|default:"—" }}</small></article>{% endfor %}</div>{% else %}<p class="empty">Sem estabelecimentos nesta competência.</p>{% endif %}
     </section>
     <section class="panel"><span class="eyebrow">Quadro societário</span><h2>Sócios</h2>
       {% if partners %}<div class="card-list compact">{% for item in partners %}<article><div><strong>{{ item.display_name }}</strong><small>{{ item.participation.get_partner_type_display }} · qualificação {{ item.qualification_code|default:"—" }}</small></div>{% if item.entry_date %}<small>Entrada em {{ item.entry_date|date:"d/m/Y" }}</small>{% endif %}</article>{% endfor %}</div>{% else %}<p class="empty">Sem participações nesta competência.</p>{% endif %}
     </section>
   </div>
   <section class="panel"><span class="eyebrow">Evidência temporal</span><h2>Linha do tempo</h2>
-    {% if events %}<div class="timeline">{% for item in events %}{% with event=item.record %}<article><time>{{ event.from_revision.window_competence.competence|date:"m/Y" }} → {{ event.to_revision.window_competence.competence|date:"m/Y" }}</time><div><strong>{{ item.label }}</strong><small>{{ item.dimension_label }}{% if event.establishment %} · {{ event.establishment.cnpj }}{% endif %}</small><div class="event-diff"><span><small>Antes</small><strong>{{ item.previous }}</strong></span><i aria-hidden="true">→</i><span><small>Depois</small><strong>{{ item.current }}</strong></span></div>{% if event.source_effective_date %}<small>Data informada pela Receita: {{ event.source_effective_date|date:"d/m/Y" }}</small>{% endif %}</div></article>{% endwith %}{% endfor %}</div>{% else %}<p class="empty">Nenhuma alteração detectada na janela.</p>{% endif %}
+    {% if events %}<div class="timeline">{% for item in events %}{% with event=item.record %}<article><time>{{ event.from_revision.window_competence.competence|date:"m/Y" }} → {{ event.to_revision.window_competence.competence|date:"m/Y" }}</time><div><strong>{{ item.label }}</strong><small>{{ item.dimension_label }}{% if event.establishment %} · {{ event.establishment.cnpj|cnpj }}{% endif %}</small><div class="event-diff"><span><small>Antes</small><strong>{{ item.previous }}</strong></span><i aria-hidden="true">→</i><span><small>Depois</small><strong>{{ item.current }}</strong></span></div>{% if event.source_effective_date %}<small>Data informada pela Receita: {{ event.source_effective_date|date:"d/m/Y" }}</small>{% endif %}</div></article>{% endwith %}{% endfor %}</div>{% else %}<p class="empty">Nenhuma alteração detectada na janela.</p>{% endif %}
   </section>
 {% endblock %}
