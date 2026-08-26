@@ -9,7 +9,7 @@ Esta matriz materializa os 34 cenários definidos no documento de validação ar
 
 ## Legenda
 
-- **Aprovado — automatizado:** existe teste direto e a suíte de 67 testes passou.
+- **Aprovado — automatizado:** existe teste direto e a suíte de 68 testes passou.
 - **Aprovado — oficial:** verificado internamente sobre a janela real ativa.
 - **Parcial:** parte crítica está coberta, mas falta uma variação ou evidência formal.
 - **Pendente:** ainda precisa de execução ou aceite específico.
@@ -29,7 +29,7 @@ Esta matriz materializa os 34 cenários definidos no documento de validação ar
 | A9 | Sócio aparece ou desaparece: `PARTNER_ADDED` ou `PARTNER_REMOVED` | Aprovado — automatizado | janela sintética publica ambos e mantém chaves determinísticas |
 | A10 | Só muda qualificação: não fabrica inclusão/remoção e gera `PARTNER_QUALIFICATION_CHANGED` | Aprovado — automatizado | `test_five_delivery_events_use_fields_already_present_in_snapshots` |
 | A11 | Pesquisa por CNPJ, razão social ou nome fantasia retorna coorte, competência e origem | Aprovado — oficial | testes funcionais do portal; busca observada em 6 ms sem termo e 12 ms com termo |
-| A12 | Dashboard por município e CNAE separa empresas/estabelecimentos e usa presença regional | Aprovado — oficial | `test_dashboard_filters_published_snapshot_by_competence_municipality_and_cnae`; 95 ms padrão e 204 ms filtrado |
+| A12 | Dashboard por intervalo, município e CNAE separa empresas/estabelecimentos, usa presença regional e ordena crescimento de capital/sociedade | Aprovado — oficial | `test_dashboard_filters_published_snapshot_by_competence_municipality_and_cnae` e `test_dashboard_ranks_growth_in_a_temporal_and_municipal_cut`; resultado validado na janela oficial |
 
 ## B. Limites temporais e qualidade
 
@@ -64,17 +64,17 @@ Esta matriz materializa os 34 cenários definidos no documento de validação ar
 | D2 | Pesquisa por nome de sócio PF é inexistente/bloqueada; sócio aparece na empresa | Parcial | portal não oferece rota de busca por PF e o detalhe omite chave/documento; falta teste negativo nomeado para tentativa de busca de PF |
 | D3 | Mesma PF em empresas distintas não recebe chave global correlacionável | Aprovado — automatizado | `test_pf_partner_identity_is_secret_and_scoped_to_company` e constraint do registro societário |
 | D4 | Docker Compose inicia aplicação e PostgreSQL com instruções reproduzíveis | Aprovado — oficial | healthcheck, Django e Compose aprovados; portal acessível em `localhost:8000` e banco em `localhost:5433` |
-| D5 | Consultas comuns respondem em até dois segundos no volume integral | Aprovado — oficial | dashboard 95/204 ms; busca 6/12 ms; detalhe 26 ms; eventos 363 ms e 55 ms filtrado por CNPJ |
+| D5 | Consultas comuns respondem em até dois segundos no volume integral | Parcial | caminhos originais permanecem abaixo de 2 s e o recorte regional anual marcou 1,055 s; o novo recorte municipal anual marcou 8,658 s e requer otimização |
 | D6 | Depois de validar os pacotes, fontes podem ser removidas preservando URL, tamanho, mês e hash | Parcial | pacotes ativos e manifestos estão preservados; fontes nacionais continuam em retenção temporária e a limpeza final é manual |
 | D7 | Falha de importação deixa estado, progresso, duração e erro auditáveis sem corromper ativa | Aprovado — automatizado | testes de manifesto adulterado e revisão reprovada confirmam batch `FAILED` e rollback |
 
 ## Resultado por tipo de evidência
 
-- suíte: **67/67 testes aprovados** em PostgreSQL, em 3,193 s;
+- suíte: **68/68 testes aprovados** em PostgreSQL, em 3,165 s;
 - qualidade estática e configuração: Ruff, Django, migrações e Compose aprovados;
 - dados oficiais: **13 competências, 12 comparações e 13 revisões ativas `r2`**;
 - privacidade persistente: **zero bloqueio** na auditoria final do PostgreSQL e dos pacotes ativos;
-- desempenho: todas as consultas medidas ficaram abaixo da meta de dois segundos;
+- desempenho: caminhos originais e recorte regional anual atendem à meta; recorte municipal anual está registrado como parcial;
 - inspeção visual: realizada informalmente pelo Product Owner no frontend provisório; não substitui homologação UX;
 - aprovações de Gabriel, Emili e professor: **pendentes**.
 
@@ -85,4 +85,5 @@ Esta matriz materializa os 34 cenários definidos no documento de validação ar
 3. Executar B3/C5 quando houver uma nova janela real ou fixture completa de expansão temporal.
 4. Adicionar teste funcional negativo explícito de pesquisa por PF para D2.
 5. Executar a limpeza manual das fontes nacionais temporárias no momento aprovado para D6.
-6. Coletar homologação de Gabriel, Emili e professor sem antecipar seus aceites.
+6. Otimizar as projeções do dashboard para recortes municipais longos e revalidar D5.
+7. Coletar homologação de Gabriel, Emili e professor sem antecipar seus aceites.

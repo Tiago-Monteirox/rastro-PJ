@@ -356,15 +356,17 @@ snapshot anterior + snapshot atual + contexto do intervalo
 
 Essa ordem resolve primeiro identidades e dimensões reutilizadas nas regras seguintes.
 
-### P1 preparado, mas não ativado em setembro
+### P1 implementado sobre os contratos preparados
 
-Os snapshots e contratos já carregarão natureza jurídica, porte, Simples, MEI e qualificação. Os comparadores P1 serão implementados em outubro sem redownload:
+Os snapshots e contratos carregam natureza jurídica, porte, Simples, MEI e qualificação. Os cinco comparadores P1 foram ativados sem redownload:
 
 - `LEGAL_NATURE_CHANGED`;
 - `COMPANY_SIZE_CHANGED`;
 - `SIMPLES_STATUS_CHANGED`;
 - `MEI_STATUS_CHANGED`;
 - `PARTNER_QUALIFICATION_CHANGED`.
+
+Os 15 tipos de evento estão presentes na janela oficial. Os códigos permanecem como contrato interno estável; o portal os apresenta com nomes de negócio e valores formatados.
 
 ### Métricas
 
@@ -377,6 +379,8 @@ Métricas serão recalculadas por revisão publicada, nunca incrementadas sem re
 - distribuição por município, CNAE, situação e porte.
 
 Somente fotografias com `is_in_region = true` entram em métricas regionais. Empresas serão contadas por CNPJ básico distinto.
+
+Na implementação atual, seis famílias mensais são persistidas: totais de empresas e estabelecimentos, estabelecimentos por município, CNAE e situação, e empresas por porte. Aberturas, baixas, eventos por tipo, variações de CNAE, rankings de aumento de capital e ampliação societária são projeções derivadas e recalculáveis. Taxas relativas, coortes de sobrevivência, concentração setorial e análise de redes ficam como extensões pós-MVP.
 
 ## 10. Camada de consulta e interface
 
@@ -476,7 +480,7 @@ UX, documentação e casos de teste caminham em paralelo, mas não removem depen
 | G5 — produto integrado | pesquisa, detalhe, timeline, dashboard e administração usam somente revisões ativas | regressão final |
 | G6 — MVP interno | critérios P0 e cenários críticos aprovados, sem erro fatal conhecido | declaração de MVP |
 
-**Estado em 25/08/2026:** G0–G5 concluídos tecnicamente. A janela oficial possui 13 revisões sanitizadas `r2`, 12 comparações, 278.301 eventos, 15.751 métricas e portal integrado. G6 possui candidata técnica interna aprovada após 67 testes e auditorias finais; homologações de Gabriel, Emili e professor continuam pendentes. Consulte [`evidencias/g3-g5-janela-oficial.md`](evidencias/g3-g5-janela-oficial.md), [`evidencias/g6-regressao-interna.md`](evidencias/g6-regressao-interna.md) e a [`matriz de aceitação`](matriz-aceitacao-mvp.md).
+**Estado em 25/08/2026:** G0–G5 concluídos tecnicamente. A janela oficial possui 13 revisões sanitizadas `r2`, 12 comparações, 278.301 eventos, 15.751 métricas e portal integrado. G6 possui candidata técnica interna aprovada após 68 testes e auditorias finais; homologações de Gabriel, Emili e professor continuam pendentes. Consulte [`evidencias/g3-g5-janela-oficial.md`](evidencias/g3-g5-janela-oficial.md), [`evidencias/g6-regressao-interna.md`](evidencias/g6-regressao-interna.md) e a [`matriz de aceitação`](matriz-aceitacao-mvp.md).
 
 A fatia G2 foi ampliada para os 35 municípios e permanece uma validação técnica de duas competências; resultados históricos do produto exigem a janela oficial de 13 competências.
 

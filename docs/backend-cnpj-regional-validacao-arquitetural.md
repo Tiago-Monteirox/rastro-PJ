@@ -132,9 +132,9 @@ Um erro estrutural bloqueia desde a primeira ocorrência. Alertas localizados pe
 - O backend acadêmico monolítico está implementado localmente e respeita as restrições deste documento.
 - A janela sanitizada `2025-08..2026-08` possui 13 revisões ativas `r2`, 8.509.822 fotografias de empresa, 8.804.270 de estabelecimento e 4.018.362 societárias.
 - Foram persistidos 278.301 eventos e 15.751 métricas derivados e recalculáveis.
-- A suíte possui 67 testes aprovados em PostgreSQL, em 3,193 s; lint, 104 arquivos conformes à formatação, Django, migrações e Compose também foram aprovados.
+- A suíte possui 68 testes aprovados em PostgreSQL, em 3,165 s; lint, 110 arquivos conformes à formatação, Django, migrações e Compose também foram aprovados.
 - A auditoria dos pacotes ativos e a auditoria global do PostgreSQL terminaram sem bloqueio de privacidade.
-- Consultas medidas ficaram abaixo de dois segundos; o pior caminho observado foi a listagem padrão de eventos, com 363 ms.
+- Os caminhos originais medidos ficaram abaixo de dois segundos. O novo recorte regional anual respondeu em 1,055 s; o recorte anual por município chegou a 8,658 s e permanece como dívida explícita de otimização.
 
 ### Interpretações aprovadas
 

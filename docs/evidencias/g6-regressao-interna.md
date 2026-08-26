@@ -10,16 +10,16 @@ O monólito, a janela oficial, os derivados e os fluxos do portal passaram pela 
 
 | Verificação | Resultado |
 |---|---|
-| suíte Django em PostgreSQL | 67/67 testes em 3,193 s |
+| suíte Django em PostgreSQL | 68/68 testes em 3,165 s |
 | Ruff lint | aprovado |
-| Ruff format | 104 arquivos conformes |
+| Ruff format | 110 arquivos conformes |
 | Django system check | nenhum issue |
 | migrações | `No changes detected` |
 | Docker Compose | configuração válida, exit code 0 |
 | pacote oficial idempotente | `COMPLETED/no_op` em 2,61 s |
 | privacidade dos pacotes | zero ocorrência proibida |
 | privacidade global do PostgreSQL | `blocking_total=0` |
-| desempenho | todos os caminhos medidos abaixo de 2 s |
+| desempenho | caminhos originais abaixo de 2 s; recorte municipal anual pendente de otimização |
 
 ## Testes temporais fechados
 
@@ -31,7 +31,7 @@ Três testes adicionais tornaram explícitas as fronteiras que antes estavam ape
 - data na borda anterior classificada como `LATE_FIRST_SEEN`, sem falsa abertura;
 - data na competência atual classificada como `ESTABLISHMENT_OPENED`.
 
-Os testes temporais direcionados passaram junto com os 67 testes da regressão.
+Os testes temporais direcionados passaram junto com os 68 testes da regressão.
 
 ## Idempotência oficial
 
@@ -51,8 +51,8 @@ Nenhuma fotografia, evento ou métrica foi duplicada.
 Dos 34 cenários documentados:
 
 - 18 estão aprovados por teste automatizado;
-- 8 estão aprovados também no volume oficial;
-- 7 possuem cobertura parcial explicitamente descrita;
+- 7 estão aprovados também no volume oficial;
+- 8 possuem cobertura parcial explicitamente descrita;
 - 1 permanece pendente: expansão ponta a ponta para competências anteriores em nova janela/coorte.
 
 As pendências parciais não são ocultadas. Elas abrangem fixtures dedicadas de matriz externa/filial regional, ausência de empresa, lacuna de publicação, ambiguidade societária localizada, tentativa de busca por PF e limpeza final de fontes temporárias.
@@ -63,13 +63,15 @@ As pendências parciais não são ocultadas. Elas abrangem fixtures dedicadas de
 |---|---:|
 | dashboard padrão | 95 ms |
 | dashboard filtrado | 204 ms |
+| dashboard regional com 12 comparações | 1,055 s |
+| dashboard de Uberlândia com 12 comparações | 8,658 s |
 | busca sem termo | 6 ms |
 | busca com termo | 12 ms |
 | detalhe | 26 ms |
 | eventos padrão | 363 ms |
 | eventos por CNPJ | 55 ms |
 
-O filtro por CNPJ foi corrigido antes da medição final. Os números são observações locais, não percentis de produção.
+O filtro por CNPJ foi corrigido antes da medição final. O recorte municipal anual produz o resultado correto, mas excede a meta e mantém D5 parcial até que as projeções analíticas sejam otimizadas. Os números são observações locais, não percentis de produção.
 
 ## Limite do aceite
 

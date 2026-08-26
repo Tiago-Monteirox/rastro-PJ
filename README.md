@@ -15,9 +15,17 @@ A janela oficial `2025-08..2026-08` está preparada e publicada localmente:
 - 278.301 eventos derivados e recalculáveis;
 - 15.751 métricas regionais persistidas.
 
-As contagens de fotografias são somas das 13 competências, não quantidades de empresas únicas. O portal, a pesquisa, o detalhe, a timeline, os eventos, o dashboard, a watchlist e o acompanhamento de importações estão integrados ao mesmo monólito.
+As contagens de fotografias são somas das 13 competências, não quantidades de empresas únicas. O portal, a pesquisa, o detalhe, a timeline, os eventos, o dashboard, a watchlist e o acompanhamento de importações estão integrados ao mesmo monólito. O dashboard aceita competência inicial e final, município e CNAE; também apresenta os maiores aumentos de capital social e as maiores ampliações líquidas do quadro societário no recorte.
 
-A suíte final possui 67 testes e foi aprovada em PostgreSQL em 3,193 s. `ruff check`, os 104 arquivos verificados por `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. A homologação de Gabriel, Emili e do professor permanece pendente e não é substituída por essas verificações internas.
+A suíte atual possui 68 testes e foi aprovada em PostgreSQL em 3,165 s. `ruff check`, os 110 arquivos verificados por `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. A homologação de Gabriel, Emili e do professor permanece pendente e não é substituída por essas verificações internas.
+
+## Indicadores e eventos
+
+As 15 regras de mudança estão ativas. No portal, seus códigos técnicos permanecem no backend para estabilidade e auditoria, mas são traduzidos para nomes de negócio e comparações legíveis de antes e depois.
+
+Seis famílias de métricas mensais são materializadas no PostgreSQL: totais de empresas e estabelecimentos regionais, estabelecimentos por município, CNAE e situação cadastral, e empresas por porte. Aberturas, baixas, eventos por tipo, variação de CNAE, aumento de capital e ampliação societária são projeções derivadas dos snapshots e eventos publicados; por isso podem ser recalculadas sem duplicar a fonte de verdade.
+
+Indicadores avançados como taxas relativas, coortes de sobrevivência, concentração setorial e análise de redes entre empresas continuam fora do compromisso do MVP. Eles podem ser incorporados depois de definir interpretação de negócio e custo de consulta.
 
 ## Requisitos
 

@@ -25,9 +25,9 @@ Existem dois marcos de entrega:
 
 ### Estado técnico em 25 de agosto de 2026
 
-A implementação local antecipou o cronograma inicial. A janela oficial de 13 competências está publicada em revisões sanitizadas `r2`, as 12 comparações estão disponíveis, o portal monolítico está integrado e a regressão técnica de 67 testes foi aprovada. As contagens ativas somam 8.509.822 fotografias de empresa, 8.804.270 de estabelecimento, 4.018.362 societárias, 278.301 eventos e 15.751 métricas.
+A implementação local antecipou o cronograma inicial. A janela oficial de 13 competências está publicada em revisões sanitizadas `r2`, as 12 comparações estão disponíveis, o portal monolítico está integrado e a regressão técnica de 68 testes foi aprovada. As contagens ativas somam 8.509.822 fotografias de empresa, 8.804.270 de estabelecimento, 4.018.362 societárias, 278.301 eventos e 15.751 métricas.
 
-Esse estado representa validação técnica interna, não a entrega acadêmica. Nome, identidade visual, artefatos de UX e as homologações de Gabriel, Emili e professor continuam pendentes conforme suas responsabilidades.
+Esse estado representa validação técnica interna, não a entrega acadêmica. O dashboard já permite recortes por intervalo, município e CNAE e produz rankings derivados de aumento de capital e ampliação societária. Nome, identidade visual, artefatos de UX e as homologações de Gabriel, Emili e professor continuam pendentes conforme suas responsabilidades.
 
 ## 2. Problema
 
