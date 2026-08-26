@@ -17,7 +17,7 @@ A janela oficial `2025-08..2026-08` está preparada e publicada localmente:
 
 As contagens de fotografias são somas das 13 competências, não quantidades de empresas únicas. O portal, a pesquisa, o detalhe, a timeline, os eventos, o dashboard, a watchlist e o acompanhamento de importações estão integrados ao mesmo monólito. O dashboard aceita competência inicial e final, município e CNAE; também apresenta os maiores aumentos de capital social e as maiores ampliações líquidas do quadro societário no recorte.
 
-A suíte atual possui 68 testes e foi aprovada em PostgreSQL em 3,165 s. `ruff check`, os 110 arquivos verificados por `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. A homologação de Gabriel, Emili e do professor permanece pendente e não é substituída por essas verificações internas.
+A suíte atual possui 78 testes e foi aprovada em PostgreSQL. `ruff check`, `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. A homologação de Gabriel, Emili e do professor permanece pendente e não é substituída por essas verificações internas.
 
 ## Indicadores e eventos
 
@@ -127,7 +127,7 @@ O pacote oficial ativo encontra-se em `var/data/packages/official-2025-08-2026-0
 
 ## Privacidade
 
-CPF completo ou mascarado é proibido no PostgreSQL, nos pacotes, manifestos, relatórios e logs. Sócios PF recebem uma chave HMAC restrita à empresa durante a preparação; o documento mascarado é descartado antes do pacote. Sócios PJ nacionais usam a raiz CNPJ de oito dígitos, inclusive quando fontes antigas fornecem os 14 dígitos.
+CPF completo ou mascarado é proibido no PostgreSQL, nos pacotes, manifestos, relatórios e logs. Sócios PF recebem uma chave HMAC restrita à empresa durante a preparação; o documento mascarado é descartado antes do pacote. Sócios PJ nacionais usam a raiz CNPJ de oito caracteres alfanuméricos, inclusive quando a fonte fornece o CNPJ completo de 14 caracteres.
 
 Os pacotes `r2` também sanitizam sequências incidentais semelhantes a documentos em campos humanos. Depois da validação das substitutas, os snapshots e pacotes substituídos com conteúdo proibido foram expurgados; metadados, hashes, lotes e ocorrências de auditoria foram preservados conforme os ADRs 0016 e 0025.
 
@@ -139,4 +139,4 @@ Os pacotes `r2` também sanitizam sequências incidentais semelhantes a document
 - fontes nacionais permanecem temporárias e exigem limpeza manual segura após as validações previstas;
 - aprovação interna técnica não equivale à homologação acadêmica ou jurídica.
 
-Leia também o [escopo aprovado](PROJETO.md), o [plano técnico](docs/backend-cnpj-regional-plano-implementacao.md), a [matriz de aceite](docs/matriz-aceitacao-mvp.md), as [evidências da janela oficial](docs/evidencias/g3-g5-janela-oficial.md) e a [regressão interna G6](docs/evidencias/g6-regressao-interna.md).
+Leia também o [escopo aprovado](PROJETO.md), o [plano técnico](docs/backend-cnpj-regional-plano-implementacao.md), o [plano de CNPJ alfanumérico e fontes públicas](docs/plano-cnpj-alfanumerico-e-fontes-publicas.md), a [matriz de aceite](docs/matriz-aceitacao-mvp.md), as [evidências da janela oficial](docs/evidencias/g3-g5-janela-oficial.md) e a [regressão interna G6](docs/evidencias/g6-regressao-interna.md).

@@ -191,12 +191,12 @@ O contrato de `partners.parquet` conterá:
 - chave estável da participação societária;
 - tipo do sócio: PF, PJ ou estrangeiro;
 - nome de exibição;
-- raiz CNPJ de oito dígitos do sócio somente quando ele for PJ nacional;
+- raiz CNPJ de oito caracteres alfanuméricos do sócio somente quando ele for PJ nacional;
 - país, quando aplicável;
 - qualificação e data de entrada;
 - competência e hash determinístico do registro.
 
-Para PF, a chave será o HMAC restrito à empresa definido na política de privacidade. Para PJ nacional, a identidade será sua raiz CNPJ de oito dígitos: competências antigas que entreguem 14 dígitos serão normalizadas para os oito primeiros, enquanto competências novas que já entreguem a raiz permanecerão inalteradas. Para sócio estrangeiro sem documento, a chave será derivada da empresa, do tipo, do nome normalizado e do país; colisões ou ambiguidades serão alertas de qualidade e suspenderão somente a comparação afetada. Qualificação e data de entrada não integrarão a identidade. CPF mascarado, representante legal, CPF do representante e faixa etária não entrarão no pacote.
+Para PF, a chave será o HMAC restrito à empresa definido na política de privacidade. Para PJ nacional, a identidade será sua raiz CNPJ de oito caracteres alfanuméricos: fontes que entreguem o CNPJ completo de 14 caracteres serão normalizadas para os oito primeiros, enquanto fontes que já entreguem a raiz permanecerão inalteradas. Para sócio estrangeiro sem documento, a chave será derivada da empresa, do tipo, do nome normalizado e do país; colisões ou ambiguidades serão alertas de qualidade e suspenderão somente a comparação afetada. Qualificação e data de entrada não integrarão a identidade. CPF mascarado, representante legal, CPF do representante e faixa etária não entrarão no pacote.
 
 Ficam inicialmente excluídos:
 

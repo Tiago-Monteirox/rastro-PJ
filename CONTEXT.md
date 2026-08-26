@@ -4,6 +4,16 @@ Este contexto descreve a linguagem do produto que transforma competências mensa
 
 ## Entidades cadastrais
 
+**CNPJ básico**:
+Os oito primeiros caracteres alfanuméricos do CNPJ, usados como identidade estável da empresa e
+compartilhados por seus estabelecimentos.
+_Evitar_: CNPJ de oito dígitos, CNPJ completo
+
+**CNPJ completo**:
+Identidade de um estabelecimento formada por doze caracteres alfanuméricos e dois dígitos
+verificadores numéricos.
+_Evitar_: CNPJ somente numérico, CNPJ básico
+
 **Empresa**:
 Entidade jurídica identificada pelo CNPJ básico, proprietária de dados corporativos e do quadro societário.
 _Evitar_: estabelecimento, filial

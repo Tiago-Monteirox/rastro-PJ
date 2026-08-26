@@ -306,7 +306,7 @@
 ### 23. A participação societária possui identidade estável conforme o tipo do sócio
 
 - **Evidência:** eventos de inclusão, remoção e alteração de qualificação exigem reconhecer a mesma participação entre competências sem usar qualificação ou data de entrada como identidade.
-- **Resultado escolhido:** transportar empresa, chave da participação, tipo, nome de exibição, raiz CNPJ de oito dígitos apenas para sócio PJ nacional, país quando aplicável, qualificação, data de entrada, competência e hash do registro. Fontes antigas com 14 dígitos e fontes novas com oito são normalizadas para a mesma raiz antes da construção da identidade.
+- **Resultado escolhido:** transportar empresa, chave da participação, tipo, nome de exibição, raiz CNPJ de oito caracteres alfanuméricos apenas para sócio PJ nacional, país quando aplicável, qualificação, data de entrada, competência e hash do registro. CNPJ completo de 14 caracteres e raiz de oito caracteres são normalizados para a mesma identidade antes da construção da chave.
 - **Consequência de negócio:** o histórico societário mostrará nomes e qualificações e distinguirá inclusão, remoção e mudança de função sem expor CPF mascarado.
 - **Consequência técnica:** PF usará HMAC restrito à empresa; PJ usará CNPJ; estrangeiro sem documento usará chave derivada de empresa, tipo, nome normalizado e país. Ambiguidade suspenderá apenas a comparação afetada.
 - **Risco evitado:** correlacionar PF globalmente, fabricar remoção e inclusão por mudança de qualificação ou transportar atributos pessoais sem finalidade.

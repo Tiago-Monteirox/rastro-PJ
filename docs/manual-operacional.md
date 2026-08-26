@@ -172,7 +172,7 @@ Antes de considerar uma revisão publicável, verifique:
 - nenhum CPF completo ou mascarado em Parquet, manifesto, PostgreSQL, logs ou relatório;
 - nenhuma chave ou coluna de CPF nos contratos funcionais;
 - chave PF produzida por HMAC restrita à empresa e segredo ausente dos artefatos;
-- sócio PJ nacional normalizado para raiz CNPJ de oito dígitos;
+- sócio PJ nacional normalizado para raiz CNPJ de oito caracteres alfanuméricos;
 - campos humanos sanitizados contra sequências incidentais semelhantes a documentos;
 - revisão substituta validada antes de qualquer expurgo.
 

@@ -85,7 +85,7 @@ Identidade: `cnpj_basic + partner_key + competence`.
 | `competence` | DATE | não |
 | `record_hash` | VARCHAR/SHA-256 | não |
 
-Para PF, `partner_key` é HMAC-SHA-256 restrito à empresa. O identificador mascarado da fonte existe apenas em memória durante essa transformação e não entra em Parquet, manifesto, PostgreSQL, evento ou log. Para PJ nacional, `partner_key` usa a raiz CNPJ de oito dígitos, e `partner_cnpj_basic` guarda somente essa raiz. Competências que entregam CNPJ completo são truncadas para a raiz; competências que já entregam oito dígitos permanecem inalteradas. Assim, a mudança observada no leiaute da Receita entre julho e agosto de 2026 não produz falsas entradas ou saídas de sócios. Colisões ou identificadores ausentes viram alertas sem expor o valor de origem.
+Para PF, `partner_key` é HMAC-SHA-256 restrito à empresa. O identificador mascarado da fonte existe apenas em memória durante essa transformação e não entra em Parquet, manifesto, PostgreSQL, evento ou log. Para PJ nacional, `partner_key` usa a raiz CNPJ de oito caracteres alfanuméricos, e `partner_cnpj_basic` guarda somente essa raiz. Competências que entregam CNPJ completo são normalizadas para a raiz; competências que já entregam os oito caracteres permanecem inalteradas. Assim, a mudança observada no leiaute da Receita entre julho e agosto de 2026 não produz falsas entradas ou saídas de sócios. Colisões ou identificadores ausentes viram alertas sem expor o valor de origem.
 
 ## Validações bloqueantes
 

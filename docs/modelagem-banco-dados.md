@@ -470,7 +470,7 @@ Checks: contagens não negativas e `affected_rows <= eligible_rows` quando a reg
 | `cnpj_basic` | VARCHAR(8) | não | identidade pública única |
 | `created_at` | TIMESTAMPTZ | não | primeira inserção no produto |
 
-`cnpj_basic` possui check de oito dígitos. A tabela não contém razão social, porte ou capital porque esses atributos pertencem às fotografias.
+`cnpj_basic` possui check de oito caracteres alfanuméricos canônicos. A tabela não contém razão social, porte ou capital porque esses atributos pertencem às fotografias.
 
 #### `registry_establishment`
 
@@ -481,7 +481,7 @@ Checks: contagens não negativas e `affected_rows <= eligible_rows` quando a reg
 | `cnpj` | VARCHAR(14) | não | identidade pública única |
 | `created_at` | TIMESTAMPTZ | não | primeira inserção |
 
-Checks: CNPJ com 14 dígitos e os oito primeiros coerentes com o `cnpj_basic` da empresa, sendo a coerência entre tabelas validada pelo serviço.
+Checks: CNPJ com doze caracteres alfanuméricos e dois DVs numéricos, e os oito primeiros coerentes com o `cnpj_basic` da empresa, sendo a coerência entre tabelas validada pelo serviço.
 
 #### `registry_partner_participation`
 
@@ -553,7 +553,7 @@ O TOM original permanece no snapshot para auditoria da fonte; o IBGE é obtido p
 Constraints:
 
 - `UNIQUE(revision_id, participation_id)`;
-- `partner_cnpj_basic` preenchido somente quando a participação for PJ, validado pelo serviço porque o tipo está na tabela relacionada; quando presente, o formato de oito dígitos é protegido no banco;
+- `partner_cnpj_basic` preenchido somente quando a participação for PJ, validado pelo serviço porque o tipo está na tabela relacionada; quando presente, o formato de oito caracteres alfanuméricos canônicos é protegido no banco;
 - nenhum campo aceita CPF completo ou mascarado.
 
 ### 8.5. Projeções derivadas e usuário

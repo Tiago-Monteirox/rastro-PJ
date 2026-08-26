@@ -4,7 +4,7 @@ status: accepted
 
 # Documento pessoal incidental também termina na preparação
 
-Sequências isoladas com formato de CPF, completas ou mascaradas, serão removidas de campos textuais destinados à exibição e pesquisa durante a preparação. A regra alcança razão social, nome fantasia e nome exibido do sócio. Se a remoção esvaziar o campo obrigatório, o pacote usará `NOME SUPRIMIDO`. CNPJ de 14 dígitos e identificadores opacos gerados por HMAC não serão alterados.
+Sequências isoladas com formato de CPF, completas ou mascaradas, serão removidas de campos textuais destinados à exibição e pesquisa durante a preparação. A regra alcança razão social, nome fantasia e nome exibido do sócio. Se a remoção esvaziar o campo obrigatório, o pacote usará `NOME SUPRIMIDO`. CNPJ completo de 14 caracteres e identificadores opacos gerados por HMAC não serão alterados.
 
 ## Context
 

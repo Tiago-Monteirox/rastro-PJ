@@ -136,8 +136,8 @@ A competência será persistida como `DateField` normalizado para o primeiro dia
 
 | Modelo | Identidade estável | Snapshot por revisão |
 |---|---|---|
-| `Company` | CNPJ básico textual de 8 dígitos | `CompanySnapshot` com razão social, natureza, capital, porte, Simples e MEI |
-| `Establishment` | CNPJ completo textual de 14 dígitos | `EstablishmentSnapshot` com situação, atividade, endereço, município e presença regional |
+| `Company` | CNPJ básico textual de 8 caracteres alfanuméricos | `CompanySnapshot` com razão social, natureza, capital, porte, Simples e MEI |
+| `Establishment` | CNPJ completo textual: 12 caracteres alfanuméricos + 2 DVs numéricos | `EstablishmentSnapshot` com situação, atividade, endereço, município e presença regional |
 | `PartnerParticipation` | empresa + chave conforme tipo do sócio | `PartnerSnapshot` com nome, tipo, PJ/país, qualificação e entrada |
 
 Cada snapshot referenciará uma `CompetenceRevision`, não apenas o mês. Assim, revisões substituídas continuam auditáveis sem competir com a revisão ativa.
