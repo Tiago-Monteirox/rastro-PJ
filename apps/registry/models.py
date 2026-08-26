@@ -15,7 +15,8 @@ class Company(models.Model):
         verbose_name_plural = "empresas"
         constraints = [
             models.CheckConstraint(
-                condition=Q(cnpj_basic__regex=r"^[0-9]{8}$"), name="reg_company_cnpj_basic_8d"
+                condition=Q(cnpj_basic__regex=r"^[A-Z0-9]{8}$"),
+                name="reg_company_cnpj_basic_8c",
             )
         ]
 
@@ -34,7 +35,8 @@ class Establishment(models.Model):
         verbose_name_plural = "estabelecimentos"
         constraints = [
             models.CheckConstraint(
-                condition=Q(cnpj__regex=r"^[0-9]{14}$"), name="reg_establishment_cnpj_14d"
+                condition=Q(cnpj__regex=r"^[A-Z0-9]{12}[0-9]{2}$"),
+                name="reg_establishment_cnpj_14c",
             )
         ]
 
@@ -208,8 +210,8 @@ class PartnerSnapshot(models.Model):
             models.CheckConstraint(
                 condition=Q(partner_cnpj_basic__isnull=True)
                 | Q(partner_cnpj_basic="")
-                | Q(partner_cnpj_basic__regex=r"^[0-9]{8}$"),
-                name="reg_partner_snapshot_cnpj_basic_8d",
+                | Q(partner_cnpj_basic__regex=r"^[A-Z0-9]{8}$"),
+                name="reg_partner_snapshot_cnpj_8c",
             ),
             models.CheckConstraint(
                 condition=Q(record_hash__regex=r"^[0-9a-f]{64}$"),
