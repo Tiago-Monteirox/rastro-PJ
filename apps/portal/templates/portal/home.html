@@ -57,9 +57,16 @@
             {% for cnae in cnae_options %}<option value="{{ cnae }}"></option>{% endfor %}
           </datalist>
         </label>
+        <label>Capital social
+          <select name="capital_scope">
+            {% for value, label in capital_scope_options %}
+              <option value="{{ value }}" {% if filters.capital_scope == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
         <button type="submit">Aplicar</button>
       </form>
-      <p class="filter-note">Os totais representam a competência final. Eventos, variações e rankings consideram todo o intervalo; o município e o CNAE são aplicados à presença empresarial na competência final.</p>
+      <p class="filter-note">Os totais representam a competência final. Eventos, variações e rankings consideram todo o intervalo; o município e o CNAE são aplicados à presença empresarial na competência final. O recorte de capital social restringe o ranking a empresas cuja matriz esteja no município filtrado — ou em algum dos 35 municípios, quando nenhum município for escolhido.</p>
     </section>
   {% endif %}
   <section class="metrics four" aria-label="Resumo da base">
@@ -103,8 +110,14 @@
     </section>
   </div>
   <div class="two-columns">
-    <section class="panel">
-      <div class="section-heading"><div><span class="eyebrow">Expansão financeira</span><h2>Maiores aumentos de capital social</h2></div></div>
+    <section class="panel" id="capital-growth">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">Expansão financeira</span>
+          <h2>Maiores aumentos de capital social</h2>
+          {% if filters.capital_scope == "headquarters" %}<small>Somente empresas com matriz no recorte.</small>{% endif %}
+        </div>
+      </div>
       {% if capital_growth %}
         <div class="ranking-list">
           {% for item in capital_growth %}
@@ -114,6 +127,14 @@
             </a>
           {% endfor %}
         </div>
+        <nav class="pagination" aria-label="Paginação do ranking de capital social">
+          <span>{{ capital_growth_page.start_index }}–{{ capital_growth_page.end_index }} de {{ capital_growth_page.total }} empresas</span>
+          <span class="pagination-controls">
+            {% if capital_growth_page.has_previous %}<a href="{{ capital_growth_page.urls.first }}">Primeira</a><a href="{{ capital_growth_page.urls.previous }}">Anterior</a>{% endif %}
+            <strong>Página {{ capital_growth_page.page }} de {{ capital_growth_page.pages }}</strong>
+            {% if capital_growth_page.has_next %}<a href="{{ capital_growth_page.urls.next }}">Próxima</a><a href="{{ capital_growth_page.urls.last }}">Última</a>{% endif %}
+          </span>
+        </nav>
       {% else %}<p class="empty">Nenhum aumento de capital social no recorte selecionado.</p>{% endif %}
     </section>
     <section class="panel">

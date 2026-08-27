@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from urllib.parse import urlencode
 
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
@@ -28,7 +29,7 @@ from apps.registry.models import (
 )
 
 from ..models import Watchlist
-from .analytics import capital_growth_ranking, partner_growth_ranking
+from .analytics import CAPITAL_GROWTH_PAGE_SIZE, capital_growth_ranking, partner_growth_ranking
 from .presenters import (
     event_type_options,
     format_brl_currency,
@@ -52,6 +53,12 @@ COMPANY_SIZE_LABELS = {
     None: "Não informado",
     "": "Não informado",
 }
+CAPITAL_SCOPE_ANY = ""
+CAPITAL_SCOPE_HEADQUARTERS = "headquarters"
+CAPITAL_SCOPE_OPTIONS = (
+    (CAPITAL_SCOPE_ANY, "Matriz ou filial"),
+    (CAPITAL_SCOPE_HEADQUARTERS, "Somente matriz"),
+)
 
 
 def dashboard_context(filters: dict[str, str] | None = None) -> dict:
@@ -113,6 +120,11 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
     selected_cnae = re.sub(r"\D", "", filters.get("cnae", ""))
     if selected_cnae not in set(cnae_options):
         selected_cnae = ""
+
+    selected_capital_scope = filters.get("capital_scope", "").strip()
+    if selected_capital_scope not in {value for value, _label in CAPITAL_SCOPE_OPTIONS}:
+        selected_capital_scope = CAPITAL_SCOPE_ANY
+    capital_page_number = _page_number(filters.get("capital_page", ""))
 
     metric_values = {}
     regional_establishments = EstablishmentSnapshot.objects.none()
@@ -376,7 +388,37 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
             if len(recent_companies) == 8:
                 break
 
-    capital_growth = capital_growth_ranking(company_events, selected_revision)
+    capital_events = company_events
+    if selected_capital_scope == CAPITAL_SCOPE_HEADQUARTERS:
+        capital_events = capital_events.filter(
+            company_id__in=regional_establishments.filter(
+                branch_type=EstablishmentSnapshot.BRANCH_TYPE_HEADQUARTERS
+            ).values("establishment__company_id")
+        )
+    capital_growth_page = capital_growth_ranking(
+        capital_events,
+        selected_revision,
+        page=capital_page_number,
+        per_page=CAPITAL_GROWTH_PAGE_SIZE,
+    )
+    capital_growth_page["urls"] = _capital_growth_page_urls(
+        capital_growth_page,
+        base_params={
+            "start_competence": (
+                start_revision.window_competence.competence.strftime("%Y-%m")
+                if start_revision
+                else ""
+            ),
+            "end_competence": (
+                selected_revision.window_competence.competence.strftime("%Y-%m")
+                if selected_revision
+                else ""
+            ),
+            "municipality": selected_municipality,
+            "cnae": selected_cnae,
+            "capital_scope": selected_capital_scope,
+        },
+    )
     partner_growth = partner_growth_ranking(
         participation_events,
         start_revision,
@@ -398,7 +440,9 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
         "opening_closing_series": opening_closing_series,
         "cnae_growth": cnae_growth,
         "cnae_reduction": cnae_reduction,
-        "capital_growth": capital_growth,
+        "capital_growth": capital_growth_page["items"],
+        "capital_growth_page": capital_growth_page,
+        "capital_scope_options": CAPITAL_SCOPE_OPTIONS,
         "partner_growth": partner_growth,
         "recent_companies": recent_companies,
         "latest_revision": latest,
@@ -425,6 +469,8 @@ def dashboard_context(filters: dict[str, str] | None = None) -> dict:
             ),
             "municipality": selected_municipality,
             "cnae": selected_cnae,
+            "capital_scope": selected_capital_scope,
+            "capital_page": capital_growth_page["page"],
         },
         "latest_batches": ImportBatch.objects.order_by("-started_at")[:5],
     }
@@ -783,6 +829,27 @@ def watchlist_context(user) -> dict:
             for item in items
         ],
         "latest_revision": latest,
+    }
+
+
+def _page_number(raw_value: str) -> int:
+    try:
+        return max(int(str(raw_value).strip()), 1)
+    except (TypeError, ValueError):
+        return 1
+
+
+def _capital_growth_page_urls(page: dict, base_params: dict[str, str]) -> dict[str, str]:
+    params = {key: value for key, value in base_params.items() if value}
+
+    def url_for(number: int) -> str:
+        return f"?{urlencode({**params, 'capital_page': number})}#capital-growth"
+
+    return {
+        "previous": url_for(page["previous_page"]) if page["has_previous"] else "",
+        "next": url_for(page["next_page"]) if page["has_next"] else "",
+        "first": url_for(1) if page["has_previous"] else "",
+        "last": url_for(page["pages"]) if page["has_next"] else "",
     }
 
 

@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -6,13 +7,15 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.changes.models import ChangeEvent
 from apps.geography.models import GeographicScope
-from apps.pipeline.models import CompetenceRevision, HistoricalWindow
+from apps.pipeline.models import CompetenceRevision, HistoricalWindow, ImportBatch
 from apps.pipeline.services import import_window_package
 from apps.pipeline.services.synthetic_window import generate_synthetic_window
-from apps.registry.models import EstablishmentSnapshot
+from apps.registry.models import Company, EstablishmentSnapshot
 
 from .models import Watchlist
+from .services.analytics import capital_growth_ranking
 
 
 class PortalSmokeTests(TestCase):
@@ -128,13 +131,112 @@ class PortalPublishedWindowTests(TestCase):
     def test_dashboard_rejects_filters_outside_the_active_scope_and_metrics(self):
         response = self.client.get(
             "/",
-            {"competence": "1999-01", "municipality": "3550308", "cnae": "9999999"},
+            {
+                "competence": "1999-01",
+                "municipality": "3550308",
+                "cnae": "9999999",
+                "capital_scope": "invalido",
+                "capital_page": "zero",
+            },
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["filters"]["competence"], "2026-08")
         self.assertEqual(response.context["filters"]["municipality"], "")
         self.assertEqual(response.context["filters"]["cnae"], "")
+        self.assertEqual(response.context["filters"]["capital_scope"], "")
+        self.assertEqual(response.context["filters"]["capital_page"], 1)
+
+    def test_capital_ranking_can_require_headquarters_inside_the_selected_municipality(self):
+        EstablishmentSnapshot.objects.filter(establishment__company__cnpj_basic="11111111").update(
+            branch_type=EstablishmentSnapshot.BRANCH_TYPE_BRANCH
+        )
+        parameters = {
+            "start_competence": "2026-07",
+            "end_competence": "2026-08",
+            "municipality": "3170206",
+        }
+
+        any_establishment = self.client.get("/", parameters)
+        headquarters_only = self.client.get("/", {**parameters, "capital_scope": "headquarters"})
+
+        self.assertEqual(any_establishment.context["capital_growth"][0]["cnpj_basic"], "11111111")
+        self.assertEqual(headquarters_only.context["capital_growth"], [])
+        self.assertEqual(headquarters_only.context["capital_growth_page"]["total"], 0)
+        self.assertContains(headquarters_only, "Somente empresas com matriz no recorte")
+
+    def test_capital_ranking_keeps_company_whose_headquarters_is_in_the_municipality(self):
+        response = self.client.get(
+            "/",
+            {
+                "start_competence": "2026-07",
+                "end_competence": "2026-08",
+                "municipality": "3170206",
+                "capital_scope": "headquarters",
+            },
+        )
+
+        self.assertEqual(response.context["capital_growth"][0]["cnpj_basic"], "11111111")
+        self.assertEqual(response.context["filters"]["capital_scope"], "headquarters")
+
+    def test_capital_ranking_exposes_pagination_and_clamps_out_of_range_pages(self):
+        response = self.client.get("/", {"capital_page": "97"})
+
+        page = response.context["capital_growth_page"]
+        self.assertEqual(page["page"], page["pages"])
+        self.assertFalse(page["has_next"])
+        self.assertEqual(page["end_index"], page["total"])
+        self.assertContains(response, "Paginação do ranking de capital social")
+
+    def test_capital_growth_ranking_slices_the_full_ranking(self):
+        self._seed_capital_growth(
+            {"22222222": ("50000.00", "90000.00"), "33333333": ("90000.00", "100000.00")}
+        )
+        window = HistoricalWindow.objects.get(status=HistoricalWindow.Status.ACTIVE)
+        end_revision = self._active_revisions(window)[-1]
+        events = ChangeEvent.objects.filter(historical_window=window, company__isnull=False)
+
+        first = capital_growth_ranking(events, end_revision, page=1, per_page=2)
+        second = capital_growth_ranking(events, end_revision, page=2, per_page=2)
+        overflow = capital_growth_ranking(events, end_revision, page=99, per_page=2)
+
+        self.assertEqual(first["total"], 3)
+        self.assertEqual(first["pages"], 2)
+        self.assertEqual([item["cnpj_basic"] for item in first["items"]], ["11111111", "22222222"])
+        self.assertTrue(first["has_next"])
+        self.assertFalse(first["has_previous"])
+        self.assertEqual([item["cnpj_basic"] for item in second["items"]], ["33333333"])
+        self.assertEqual((second["start_index"], second["end_index"]), (3, 3))
+        self.assertTrue(second["has_previous"])
+        self.assertFalse(second["has_next"])
+        self.assertEqual(overflow["page"], 2)
+
+    def _active_revisions(self, window):
+        return list(
+            CompetenceRevision.objects.filter(
+                window_competence__historical_window=window,
+                status__in=CompetenceRevision.ACTIVE_STATUSES,
+            ).order_by("window_competence__competence")
+        )
+
+    def _seed_capital_growth(self, capital_by_company: dict[str, tuple[str, str]]) -> None:
+        window = HistoricalWindow.objects.get(status=HistoricalWindow.Status.ACTIVE)
+        revisions = self._active_revisions(window)
+        import_batch = ImportBatch.objects.order_by("started_at").first()
+        for cnpj_basic, (previous, current) in capital_by_company.items():
+            ChangeEvent.objects.create(
+                event_key=hashlib.sha256(f"test:capital:{cnpj_basic}".encode()).hexdigest(),
+                historical_window=window,
+                from_revision=revisions[0],
+                to_revision=revisions[-1],
+                entity_type=ChangeEvent.EntityType.COMPANY,
+                company=Company.objects.get(cnpj_basic=cnpj_basic),
+                dimension="share_capital",
+                event_type="SHARE_CAPITAL_CHANGED",
+                previous_value={"share_capital": previous},
+                new_value={"share_capital": current},
+                import_batch=import_batch,
+            )
 
     def test_search_and_company_detail_are_connected(self):
         response = self.client.get("/empresas/", {"q": "Alfa"})

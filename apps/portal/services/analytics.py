@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+from math import ceil
 
 from django.db.models import Count, F, IntegerField, Q
 from django.db.models.expressions import ExpressionWrapper
@@ -9,10 +10,19 @@ from apps.registry.models import CompanySnapshot, PartnerSnapshot
 
 from .presenters import format_brl_currency
 
+CAPITAL_GROWTH_PAGE_SIZE = 10
 
-def capital_growth_ranking(interval_events, end_revision, *, limit: int = 8) -> list[dict]:
+
+def capital_growth_ranking(
+    interval_events,
+    end_revision,
+    *,
+    page: int = 1,
+    per_page: int = CAPITAL_GROWTH_PAGE_SIZE,
+) -> dict:
+    """Ranqueia aumentos de capital social do intervalo e devolve uma página do ranking."""
     if not end_revision:
-        return []
+        return _empty_ranking_page(per_page)
     companies: dict[int, dict] = {}
     rows = (
         interval_events.filter(event_type="SHARE_CAPITAL_CHANGED", company__isnull=False)
@@ -46,13 +56,46 @@ def capital_growth_ranking(interval_events, end_revision, *, limit: int = 8) -> 
         if company["delta"] > 0:
             ranking.append(company)
     ranking.sort(key=lambda item: (-item["delta"], item["cnpj_basic"]))
-    ranking = ranking[:limit]
-    _attach_company_names(ranking, end_revision)
-    for item in ranking:
+
+    total = len(ranking)
+    pages = max(1, ceil(total / per_page))
+    page = min(max(page, 1), pages)
+    offset = (page - 1) * per_page
+    items = ranking[offset : offset + per_page]
+    _attach_company_names(items, end_revision)
+    for item in items:
         item["previous_display"] = format_brl_currency(item["previous"])
         item["current_display"] = format_brl_currency(item["current"])
         item["delta_display"] = format_brl_currency(item["delta"])
-    return ranking
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "pages": pages,
+        "per_page": per_page,
+        "has_previous": page > 1,
+        "has_next": page < pages,
+        "previous_page": page - 1,
+        "next_page": page + 1,
+        "start_index": offset + 1 if items else 0,
+        "end_index": offset + len(items),
+    }
+
+
+def _empty_ranking_page(per_page: int) -> dict:
+    return {
+        "items": [],
+        "total": 0,
+        "page": 1,
+        "pages": 1,
+        "per_page": per_page,
+        "has_previous": False,
+        "has_next": False,
+        "previous_page": 1,
+        "next_page": 1,
+        "start_index": 0,
+        "end_index": 0,
+    }
 
 
 def partner_growth_ranking(interval_events, start_revision, end_revision, *, limit: int = 8):

@@ -112,6 +112,9 @@ class CompanySnapshot(models.Model):
 
 
 class EstablishmentSnapshot(models.Model):
+    BRANCH_TYPE_HEADQUARTERS = "1"
+    BRANCH_TYPE_BRANCH = "2"
+
     revision = models.ForeignKey(
         CompetenceRevision, on_delete=models.PROTECT, related_name="establishment_snapshots"
     )
