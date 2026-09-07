@@ -351,21 +351,43 @@ class PortalPublishedWindowTests(TestCase):
         self.assertContains(response, "r1")
         self.assertContains(response, "4 artefato(s)")
 
-    def test_authenticated_user_can_add_and_remove_watchlist_company(self):
+    def test_watchlist_page_can_search_add_and_remove_company(self):
         user = get_user_model().objects.create_user(username="tiago", password="teste-local")
         self.client.force_login(user)
 
-        added = self.client.post("/monitoradas/11111111/", {"action": "add"})
-        self.assertEqual(added.status_code, 302)
+        search = self.client.get("/monitoradas/", {"q": "Alfa"})
+        self.assertContains(search, "Alfa Comércio Ltda")
+        self.assertContains(search, "Monitorar")
+
+        added = self.client.post(
+            "/monitoradas/11111111/",
+            {"action": "add", "return_to": "watchlist"},
+        )
+        self.assertRedirects(added, "/monitoradas/")
         self.assertTrue(Watchlist.objects.filter(user=user).exists())
         listing = self.client.get("/monitoradas/")
         self.assertContains(listing, "Alfa Comércio Ltda")
         self.assertContains(listing, "alteração(ões)")
         self.assertContains(listing, "no último intervalo")
+        self.assertContains(listing, "Remover")
 
-        removed = self.client.post("/monitoradas/11111111/", {"action": "remove"})
-        self.assertEqual(removed.status_code, 302)
+        removed = self.client.post(
+            "/monitoradas/11111111/",
+            {"action": "remove", "return_to": "watchlist"},
+        )
+        self.assertRedirects(removed, "/monitoradas/")
         self.assertFalse(Watchlist.objects.filter(user=user).exists())
+
+    def test_watchlist_search_marks_companies_already_monitored(self):
+        user = get_user_model().objects.create_user(username="carteira")
+        company = Company.objects.get(cnpj_basic="11111111")
+        Watchlist.objects.create(user=user, company=company)
+        self.client.force_login(user)
+
+        response = self.client.get("/monitoradas/", {"q": "11.111.111/0001-91"})
+
+        self.assertContains(response, "Alfa Comércio Ltda")
+        self.assertContains(response, "Já monitorada")
 
     def test_watchlist_accepts_lowercase_alphanumeric_route(self):
         user = get_user_model().objects.create_user(username="alfanumerico")

@@ -4,6 +4,68 @@
 {% block content %}
   <section class="page-heading"><span class="eyebrow">Acompanhamento</span><h1>Empresas monitoradas</h1><p>Sua seleção local para acesso rápido às fotografias e linhas do tempo.</p></section>
   <section class="panel">
-    {% if watchlist_items %}<div class="result-list">{% for item in watchlist_items %}<a href="{% url 'portal:company-detail' item.watchlist.company.cnpj_basic %}"><span><strong>{% if item.snapshot %}{{ item.snapshot.legal_name }}{% else %}CNPJ {{ item.watchlist.company.cnpj_basic|cnpj_basic }}{% endif %}</strong><small>CNPJ básico {{ item.watchlist.company.cnpj_basic|cnpj_basic }}</small></span><span>{% if item.recent_event_count %}<strong>{{ item.recent_event_count }} alteração(ões)</strong><small>no último intervalo</small>{% else %}<small>Sem alteração no último intervalo</small>{% endif %}<small>Monitorada desde {{ item.watchlist.created_at|date:"d/m/Y" }}</small></span></a>{% endfor %}</div>{% else %}<p class="empty">Você ainda não monitora nenhuma empresa. Adicione uma pela tela de detalhe.</p>{% endif %}
+    <div class="section-heading">
+      <div><span class="eyebrow">Nova monitorada</span><h2>Adicionar empresa</h2></div>
+    </div>
+    <form class="search-form watchlist-search" method="get">
+      <label class="sr-only" for="watchlist-query">CNPJ, razão social ou nome fantasia</label>
+      <div>
+        <input id="watchlist-query" name="q" value="{{ query }}" minlength="2" required placeholder="CNPJ, razão social ou nome fantasia">
+        <button type="submit">Buscar empresa</button>
+      </div>
+    </form>
+    {% if query %}
+      <p class="result-count">{{ search_results|length }} resultado(s) para “{{ query }}”.</p>
+      {% if search_results %}
+        <div class="watchlist-list">
+          {% for item in search_results %}
+            <article class="watchlist-row">
+              <a class="watchlist-company-link" href="{% url 'portal:company-detail' item.company.cnpj_basic %}">
+                <span><strong>{{ item.snapshot.legal_name }}</strong><small>CNPJ básico {{ item.company.cnpj_basic|cnpj_basic }}</small></span>
+                <span><strong>{{ item.regional_establishments }}</strong><small>estabelecimento(s) regional(is)</small></span>
+              </a>
+              {% if item.is_watched %}
+                <span class="badge active">Já monitorada</span>
+              {% else %}
+                <form action="{% url 'portal:watchlist-toggle' item.company.cnpj_basic %}" method="post">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="add">
+                  <input type="hidden" name="return_to" value="watchlist">
+                  <button type="submit" class="secondary-button">Monitorar</button>
+                </form>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="empty">Nenhuma empresa encontrada para o termo informado.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+  <section class="panel">
+    <div class="section-heading">
+      <div><span class="eyebrow">Sua carteira</span><h2>Em acompanhamento</h2></div>
+      <span class="badge">{{ watchlist_items|length }} empresa(s)</span>
+    </div>
+    {% if watchlist_items %}
+      <div class="watchlist-list">
+        {% for item in watchlist_items %}
+          <article class="watchlist-row">
+            <a class="watchlist-company-link" href="{% url 'portal:company-detail' item.watchlist.company.cnpj_basic %}">
+              <span><strong>{% if item.snapshot %}{{ item.snapshot.legal_name }}{% else %}CNPJ {{ item.watchlist.company.cnpj_basic|cnpj_basic }}{% endif %}</strong><small>CNPJ básico {{ item.watchlist.company.cnpj_basic|cnpj_basic }}</small></span>
+              <span>{% if item.recent_event_count %}<strong>{{ item.recent_event_count }} alteração(ões)</strong><small>no último intervalo</small>{% else %}<small>Sem alteração no último intervalo</small>{% endif %}<small>Monitorada desde {{ item.watchlist.created_at|date:"d/m/Y" }}</small></span>
+            </a>
+            <form action="{% url 'portal:watchlist-toggle' item.watchlist.company.cnpj_basic %}" method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="remove">
+              <input type="hidden" name="return_to" value="watchlist">
+              <button type="submit" class="secondary-button">Remover</button>
+            </form>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty">Você ainda não monitora nenhuma empresa. Use a busca acima para adicionar a primeira.</p>
+    {% endif %}
   </section>
 {% endblock %}

@@ -65,7 +65,11 @@ def import_list(request):
 
 @login_required
 def watchlist_list(request):
-    return render(request, "portal/watchlist.html", watchlist_context(request.user))
+    return render(
+        request,
+        "portal/watchlist.html",
+        watchlist_context(request.user, request.GET.get("q", "")),
+    )
 
 
 @login_required
@@ -76,4 +80,6 @@ def watchlist_toggle(request, cnpj_basic):
         Watchlist.objects.filter(user=request.user, company=company).delete()
     else:
         Watchlist.objects.get_or_create(user=request.user, company=company)
+    if request.POST.get("return_to") == "watchlist":
+        return redirect("portal:watchlist")
     return redirect("portal:company-detail", cnpj_basic=company.cnpj_basic)

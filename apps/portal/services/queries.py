@@ -785,11 +785,15 @@ def import_list_context() -> dict:
     }
 
 
-def watchlist_context(user) -> dict:
+def watchlist_context(user, query: str = "") -> dict:
+    query = query.strip()
     window = _active_window()
     latest = _active_revisions(window).last() if window else None
-    items = list(Watchlist.objects.filter(user=user).select_related("company"))
+    items = list(
+        Watchlist.objects.filter(user=user).select_related("company").order_by("-created_at")
+    )
     company_ids = [item.company_id for item in items]
+    watched_company_ids = set(company_ids)
     snapshots = {}
     recent_event_counts = {}
     if latest:
@@ -818,8 +822,16 @@ def watchlist_context(user) -> dict:
                 recent_event_counts[company_id] = (
                     recent_event_counts.get(company_id, 0) + row["total"]
                 )
+    search_results = []
+    if query:
+        search_results = [
+            {**result, "is_watched": result["company"].id in watched_company_ids}
+            for result in search_company_context(query)["results"]
+        ]
     return {
         "active_window": window,
+        "query": query,
+        "search_results": search_results,
         "watchlist_items": [
             {
                 "watchlist": item,
