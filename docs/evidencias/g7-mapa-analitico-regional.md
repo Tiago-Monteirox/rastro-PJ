@@ -1,0 +1,126 @@
+# G7 — Mapa analítico regional
+
+**Data da execução:** 7 de setembro de 2026
+**Ambiente:** macOS, Django 5.2.17, PostgreSQL 17 em Docker Compose
+**Escopo:** 35 municípios, 13 competências de `2025-08` a `2026-08`
+
+## Objetivo
+
+Demonstrar que o Rastro PJ consegue transformar endereços cadastrais publicados pela Receita em uma projeção cartográfica derivada, gratuita, auditável e consultável sem alterar as fotografias normalizadas de origem.
+
+## Fontes registradas
+
+| Fonte | Versão | Municípios | SHA-256 do manifesto |
+|---|---|---:|---|
+| CNEFE | 2022 | 35 | `184d0ba825f825712e803bb206df3fe6d5625e2f0c707ce34f364eddf56beb59` |
+| Malha municipal IBGE | 2022, qualidade mínima | 35 | `5b9e1c0ea583975a5f5883770b532466b7f3432c2a7e5593d448831c4d6405e4` |
+
+Os 35 CSVs CNEFE possuem 961.993 linhas e 151 MiB extraídos. A malha possui 35 GeoJSON e 140 KiB. Arquivos permanecem em `var/data/cartography/`, fora do Git.
+
+## Execução
+
+```bash
+make prepare-map
+```
+
+Projeção publicada:
+
+- ID: `a5c4eee0-4b21-4184-8b2d-63f6f3dff687`;
+- algoritmo: `1.0.1`;
+- duração integral: 10 min 01,86 s;
+- RSS máximo medido na indexação CNEFE: 450.838.528 bytes, aproximadamente 430 MiB;
+- reexecução idempotente: 0,40 s, sem nova escrita.
+
+Uma execução anterior interrompida permaneceu como `FAILED`; em nenhum momento substituiu a projeção publicada.
+
+## Resultado do quality gate
+
+| Medida | Resultado |
+|---|---:|
+| ocorrências elegíveis | 3.483.375 |
+| correspondência no endereço | 2.278.263 |
+| aproximação por CEP | 1.038.305 |
+| não localizadas | 166.807 |
+| total localizado | 3.316.568 |
+| cobertura global | 95,21% |
+| competências completas | 13/13 |
+| limites municipais | 35/35 |
+| falhas municipais | 0 |
+| erros estruturais | 0 |
+
+Menores coberturas acumuladas:
+
+| Município | Ocorrências | Cobertura |
+|---|---:|---:|
+| Frutal | 106.099 | 71,48% |
+| Araporã | 12.787 | 81,93% |
+| Ituiutaba | 144.818 | 91,42% |
+| Araguari | 207.326 | 94,22% |
+| Uberaba | 650.031 | 94,22% |
+
+Frutal permanece acima do limite bloqueante aprovado de 70%. A projeção passou pelo limite global de 90%, pelas verificações de coordenadas e níveis CNEFE e pela correspondência entre janela, revisão, empresa e estabelecimento.
+
+Na competência mais recente, `2026-08`:
+
+- 270.411 estabelecimentos ativos;
+- 261.687 empresas distintas;
+- 35 municípios com presença;
+- 257.371 localizados;
+- cobertura de 95,18%.
+
+## Desempenho aquecido
+
+Vinte execuções locais por cenário, com PostgreSQL e cache aquecidos:
+
+| Consulta | Mediana | p95 | Limite |
+|---|---:|---:|---:|
+| resumo, seis indicadores, rankings e polígonos | 0,532 s | 0,536 s | 1,0 s |
+| agregação regional | 0,100 s | 0,103 s | 1,5 s |
+| Uberlândia no zoom intermediário, com 4.185 CEPs e ponto real representativo | 0,215 s | 0,251 s | 1,5 s |
+| página do maior grupo de precisão, com 1.697 estabelecimentos e 25 por página | 0,014 s | 0,020 s | 1,5 s |
+
+O endpoint detalhado nunca retorna mais de cinco mil localizações. Quando o conjunto excede o limite, responde com agregação por CEP; se essa camada também exceder, responde por município e informa o motivo.
+
+## Segurança, privacidade e degradação
+
+- página e três endpoints cartográficos exigem autenticação;
+- acesso anônimo foi redirecionado para login;
+- as respostas não incluem CPF, quadro societário ou campos pessoais;
+- detalhes contêm somente atributos empresariais necessários e são paginados em 25 itens;
+- token `sk.` é rejeitado antes da renderização e nunca chega ao HTML;
+- ausência do token `pk.` mantém filtros, indicadores, rankings e tabela municipal;
+- Mapbox não recebe endereços, não geocodifica e não é consumido pelos testes;
+- Mapbox GL JS v3 só é instanciado quando há token público, pois exige credencial válida e contabiliza um map load por instância, inclusive com estilo local;
+- a mesma precisão pública é aplicada a MEI e não MEI, conforme risco aceito para uso local.
+
+## Smoke test no navegador
+
+A página autenticada foi aberta no Chrome em `http://localhost:8000/mapa/`, sem token Mapbox configurado e sem inicializar mapa ou consumir tiles. O estado degradado apresentou os sete filtros, os seis indicadores, rankings e a tabela sem erro de console.
+
+O recorte `Uberlândia + CNAE 7319002`, na competência `2026-08`, foi aplicado pela interface e produziu:
+
+- 7.225 estabelecimentos ativos e 7.224 empresas distintas;
+- um município com presença;
+- 7.219 matrizes e seis filiais;
+- cobertura geográfica de 96,93%;
+- URL atualizada com os filtros e tabela semântica preservada com os 35 municípios.
+
+Esse smoke comprova a operação degradada, o envio real do formulário, a atualização coerente dos indicadores e a alternativa acessível. A renderização dos polígonos e pontos continuará pendente até a configuração externa do token público dedicado.
+
+## Verificação automatizada
+
+```bash
+docker compose run --rm web python manage.py test
+uv run ruff check .
+uv run ruff format --check .
+docker compose run --rm web python manage.py check
+docker compose run --rm web python manage.py makemigrations --check --dry-run
+node --check apps/portal/static/portal/establishment-map.js
+docker compose config --quiet
+```
+
+Resultado final: 105 testes aprovados em PostgreSQL em 3,619 s, sem falha de lint, formatação, Django, migração, JavaScript ou Compose.
+
+## Conclusão
+
+A POC cartográfica satisfaz internamente os critérios funcionais, de dados, segurança, desempenho, idempotência e operação degradada. A revisão de UI/UX da equipe, a configuração de um token público Mapbox restrito e a homologação acadêmica continuam como validações humanas externas à implementação.

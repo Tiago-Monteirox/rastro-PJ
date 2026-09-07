@@ -6,7 +6,7 @@
       "x": -1800,
       "y": -300,
       "width": 520,
-      "height": 800,
+      "height": 1200,
       "color": "5",
       "label": "1. Fontes e operação"
     },
@@ -36,7 +36,7 @@
       "x": 330,
       "y": -400,
       "width": 1100,
-      "height": 1000,
+      "height": 1250,
       "color": "4",
       "label": "4. Monólito Django"
     },
@@ -46,7 +46,7 @@
       "x": 1570,
       "y": -300,
       "width": 600,
-      "height": 800,
+      "height": 1150,
       "color": "6",
       "label": "5. Persistência histórica"
     },
@@ -56,7 +56,7 @@
       "x": 2300,
       "y": -300,
       "width": 580,
-      "height": 800,
+      "height": 1150,
       "color": "5",
       "label": "6. Experiência local"
     },
@@ -65,7 +65,7 @@
       "type": "group",
       "x": 330,
       "y": 760,
-      "width": 1840,
+      "width": 2550,
       "height": 400,
       "color": "1",
       "label": "Decisões, plano e modelagem"
@@ -96,6 +96,24 @@
       "width": 400,
       "height": 160,
       "text": "## Operador local\n\nTiago inicia preparação e importação manualmente pelo terminal\n\nSem cron ou fila"
+    },
+    {
+      "id": "source-cnefe",
+      "type": "text",
+      "x": -1740,
+      "y": 470,
+      "width": 400,
+      "height": 170,
+      "text": "## CNEFE 2022 + malhas IBGE\n\n35 municípios • endereços • coordenadas • nível de precisão • GeoJSON"
+    },
+    {
+      "id": "source-mapbox",
+      "type": "text",
+      "x": -1740,
+      "y": 680,
+      "width": 400,
+      "height": 150,
+      "text": "## Mapbox GL JS\n\nRenderização no navegador com token público restrito\n\nSem geocodificação"
     },
     {
       "id": "prep-command",
@@ -194,7 +212,16 @@
       "y": 260,
       "width": 650,
       "height": 180,
-      "text": "## Qualidade dentro do monólito\n\n67 testes • PostgreSQL • transações • comandos • fluxos\n\nRevisões externas de Gabriel e Emili pendentes"
+      "text": "## Qualidade dentro do monólito\n\n105 testes • PostgreSQL • transações • comandos • fluxos\n\nHomologações externas da equipe e do professor pendentes"
+    },
+    {
+      "id": "monolith-cartography",
+      "type": "text",
+      "x": 400,
+      "y": 500,
+      "width": 430,
+      "height": 220,
+      "text": "## Projeção cartográfica\n\n`prepare_cartographic_projection`\n\nNormalização • matching • quality gate • publicação atômica"
     },
     {
       "id": "db-postgres",
@@ -224,6 +251,15 @@
       "text": "## Projeções recalculáveis\n\nChangeEvent • métricas • qualidade • auditoria"
     },
     {
+      "id": "db-cartography",
+      "type": "text",
+      "x": 1630,
+      "y": 500,
+      "width": 480,
+      "height": 220,
+      "text": "## Cartografia derivada\n\nFontes • malhas • resoluções\nprojeções • 3.483.375 observações\n\nPostgreSQL sem PostGIS"
+    },
+    {
       "id": "ui-browser",
       "type": "text",
       "x": 2360,
@@ -251,6 +287,15 @@
       "text": "## Visão regional e operação\n\nDashboard • filtros\nLotes • revisões • alertas"
     },
     {
+      "id": "ui-map",
+      "type": "text",
+      "x": 2360,
+      "y": 500,
+      "width": 460,
+      "height": 220,
+      "text": "## Mapa analítico regional\n\n13 competências • 7 filtros • 6 indicadores\n\nAgregação progressiva • detalhe paginado • fallback acessível"
+    },
+    {
       "id": "doc-validation",
       "type": "file",
       "x": 400,
@@ -276,6 +321,15 @@
       "width": 500,
       "height": 230,
       "file": "docs/modelagem-banco-dados.md"
+    },
+    {
+      "id": "doc-map",
+      "type": "file",
+      "x": 2140,
+      "y": 850,
+      "width": 500,
+      "height": 230,
+      "file": "docs/mapa-de-estabelecimentos-validacao-arquitetural.md"
     }
   ],
   "edges": [
@@ -374,6 +428,24 @@
       "label": "disparo manual"
     },
     {
+      "id": "edge-cnefe-cartography",
+      "fromNode": "source-cnefe",
+      "fromSide": "right",
+      "toNode": "monolith-cartography",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "dados públicos"
+    },
+    {
+      "id": "edge-operator-cartography",
+      "fromNode": "source-operator",
+      "fromSide": "right",
+      "toNode": "monolith-cartography",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "disparo manual"
+    },
+    {
       "id": "edge-import-pipeline",
       "fromNode": "monolith-import",
       "fromSide": "bottom",
@@ -432,6 +504,42 @@
       "toSide": "left",
       "toEnd": "arrow",
       "label": "indicadores"
+    },
+    {
+      "id": "edge-pipeline-cartography",
+      "fromNode": "monolith-pipeline",
+      "fromSide": "bottom",
+      "toNode": "monolith-cartography",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "13 revisões publicadas"
+    },
+    {
+      "id": "edge-cartography-db",
+      "fromNode": "monolith-cartography",
+      "fromSide": "right",
+      "toNode": "db-cartography",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "projeção versionada"
+    },
+    {
+      "id": "edge-db-cartography-portal",
+      "fromNode": "db-cartography",
+      "fromSide": "right",
+      "toNode": "ui-map",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "agregações e detalhes"
+    },
+    {
+      "id": "edge-mapbox-map",
+      "fromNode": "source-mapbox",
+      "fromSide": "right",
+      "toNode": "ui-map",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "renderização"
     },
     {
       "id": "edge-portal-browser",
@@ -496,6 +604,15 @@
       "toSide": "left",
       "toEnd": "arrow",
       "label": "detalha"
+    },
+    {
+      "id": "edge-model-map",
+      "fromNode": "doc-database",
+      "fromSide": "right",
+      "toNode": "doc-map",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "estende"
     }
   ]
 }

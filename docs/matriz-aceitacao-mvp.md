@@ -1,15 +1,15 @@
 # Matriz de aceitação do MVP
 
-**Versão da matriz:** 25/08/2026  
-**Total:** 34 cenários  
+**Versão da matriz:** 07/09/2026
+**Total:** 46 cenários
 **Janela de referência:** `2025-08..2026-08`  
 **Ambiente:** Mac local, Docker Compose, Django 5.2 e PostgreSQL
 
-Esta matriz materializa os 34 cenários definidos no documento de validação arquitetural. Ela separa teste automatizado, verificação interna no volume oficial e homologação externa. “Aprovado” nesta tabela significa evidência técnica interna; não significa aceite de pesquisa e QA, documentação, UI/UX ou do professor.
+Esta matriz materializa os 34 cenários cadastrais originais e os 12 cenários da projeção cartográfica. Ela separa teste automatizado, verificação interna no volume oficial e homologação externa. “Aprovado” nesta tabela significa evidência técnica interna; não significa aceite de pesquisa e QA, documentação, UI/UX ou do professor.
 
 ## Legenda
 
-- **Aprovado — automatizado:** existe teste direto e a suíte de 68 testes passou.
+- **Aprovado — automatizado:** existe teste direto e a suíte de 105 testes passou.
 - **Aprovado — oficial:** verificado internamente sobre a janela real ativa.
 - **Parcial:** parte crítica está coberta, mas falta uma variação ou evidência formal.
 - **Pendente:** ainda precisa de execução ou aceite específico.
@@ -68,9 +68,26 @@ Esta matriz materializa os 34 cenários definidos no documento de validação ar
 | D6 | Depois de validar os pacotes, fontes podem ser removidas preservando URL, tamanho, mês e hash | Parcial | pacotes ativos e manifestos estão preservados; fontes nacionais continuam em retenção temporária e a limpeza final é manual |
 | D7 | Falha de importação deixa estado, progresso, duração e erro auditáveis sem corromper ativa | Aprovado — automatizado | testes de manifesto adulterado e revisão reprovada confirmam batch `FAILED` e rollback |
 
+## E. Mapa analítico regional
+
+| ID | Cenário e resultado esperado | Estado | Evidência interna |
+|---|---|---|---|
+| E1 | Página e três endpoints cartográficos exigem autenticação e representam uma única competência por consulta | Aprovado — automatizado | `test_page_and_every_api_require_authentication` e `test_bootstrap_uses_one_competence_and_all_seven_filters` |
+| E2 | Município, CNAE principal, matriz/filial, porte, perfil tributário e precisão combinam com a competência sem filtro silenciosamente ignorado | Aprovado — automatizado | os sete filtros válidos são exercitados em conjunto; município fora do recorte, porte desconhecido e formatos inválidos são rejeitados pelo contrato |
+| E3 | Resumo entrega seis indicadores, rankings e limites dos 35 municípios sem confundir empresa com estabelecimento | Aprovado — oficial | projeção integral e smoke autenticado sobre `2026-08`; 270.411 estabelecimentos, 261.687 empresas e 35 municípios |
+| E4 | Correspondência de endereço é determinística, insensível a acentos e restrita a município, CEP, logradouro e número normalizados | Aprovado — automatizado | testes de normalização, chave de busca e melhor nível CNEFE em `test_matching.py` |
+| E5 | Múltiplos candidatos até 100 m escolhem um ponto CNEFE real; dispersão superior a 100 m recua para CEP | Aprovado — automatizado | testes de ambiguidade e de representante real em `test_matching.py` |
+| E6 | Cascata endereço → CEP → não localizado preserva método e nível; nenhum registro sem evidência recebe coordenada fabricada | Aprovado — automatizado | constraints, testes de matching/modelo e quality gate integral |
+| E7 | Endpoint detalhado retorna no máximo 5.000 grupos e amplia a agregação por CEP ou município sem truncar o universo | Aprovado — automatizado | `test_excess_detail_is_aggregated_without_silent_truncation`; o ponto do CEP permanece uma coordenada CNEFE real, e o benchmark de Uberlândia retornou 4.185 CEPs |
+| E8 | Clique em um grupo preserva coordenada, método e nível; detalhes empresariais são paginados em 25 e não expõem dados pessoais | Aprovado — automatizado | testes de grupo de precisão, paginação e ausência de CPF/quadro societário |
+| E9 | Sem projeção, sem biblioteca ou sem token público, a aplicação mantém estado explicativo, indicadores e tabela; token secreto nunca chega ao HTML | Aprovado — automatizado | testes de projeção ausente, token `sk.` rejeitado e fallback textual da página |
+| E10 | Preparação manual é idempotente, reiniciável e só troca a projeção em publicação atômica após o quality gate | Aprovado — oficial | execução integral em 10 min 01,86 s, interrupção preservada como `FAILED` e reexecução no-op em 0,40 s |
+| E11 | Preparação usa menos de 2 GiB/30 min e consultas aquecidas respeitam p95 de 1,0 s no resumo e 1,5 s nos demais endpoints | Aprovado — oficial | RSS de aproximadamente 430 MiB; p95 de 0,536 s, 0,103 s, 0,251 s e 0,020 s |
+| E12 | Fontes CNEFE e malhas possuem inventário, SHA-256, validação estrutural e cobertura mínima de 90% global/70% por município | Aprovado — oficial | 13/13 competências, 35/35 limites, 95,21% global, nenhuma falha municipal ou estrutural; consulte G7 |
+
 ## Resultado por tipo de evidência
 
-- suíte: **68/68 testes aprovados** em PostgreSQL, em 3,165 s;
+- suíte atual: **105/105 testes aprovados** em PostgreSQL, em 3,619 s; a regressão cadastral G6 permanece registrada separadamente com seus 68 testes históricos;
 - qualidade estática e configuração: Ruff, Django, migrações e Compose aprovados;
 - dados oficiais: **13 competências, 12 comparações e 13 revisões ativas `r2`**;
 - privacidade persistente: **zero bloqueio** na auditoria final do PostgreSQL e dos pacotes ativos;
@@ -87,3 +104,4 @@ Esta matriz materializa os 34 cenários definidos no documento de validação ar
 5. Executar a limpeza manual das fontes nacionais temporárias no momento aprovado para D6.
 6. Otimizar as projeções do dashboard para recortes municipais longos e revalidar D5.
 7. Coletar homologação de Gabriel, Emili, do novo integrante de UI/UX e do professor sem antecipar seus aceites.
+8. Configurar um token público Mapbox restrito e executar a homologação visual externa do mapa; a operação degradada sem token já está aprovada.

@@ -6,16 +6,18 @@
 > O refinamento do backend foi consolidado em [`docs/backend-cnpj-regional-validacao-arquitetural.md`](docs/backend-cnpj-regional-validacao-arquitetural.md).
 > O plano técnico aprovado está em [`docs/backend-cnpj-regional-plano-implementacao.md`](docs/backend-cnpj-regional-plano-implementacao.md).
 > A modelagem aprovada para a implementação inicial está em [`docs/modelagem-banco-dados.md`](docs/modelagem-banco-dados.md), com a visão geral em [`docs/arquitetura-geral.canvas`](docs/arquitetura-geral.canvas).
-> A situação implementada está em [`docs/evidencias/g3-g5-janela-oficial.md`](docs/evidencias/g3-g5-janela-oficial.md), a regressão em [`docs/evidencias/g6-regressao-interna.md`](docs/evidencias/g6-regressao-interna.md), os 34 cenários em [`docs/matriz-aceitacao-mvp.md`](docs/matriz-aceitacao-mvp.md) e a operação em [`docs/manual-operacional.md`](docs/manual-operacional.md).
+> A situação implementada está em [`docs/evidencias/g3-g5-janela-oficial.md`](docs/evidencias/g3-g5-janela-oficial.md), a regressão em [`docs/evidencias/g6-regressao-interna.md`](docs/evidencias/g6-regressao-interna.md), os 46 cenários atuais em [`docs/matriz-aceitacao-mvp.md`](docs/matriz-aceitacao-mvp.md), a evidência cartográfica em [`docs/evidencias/g7-mapa-analitico-regional.md`](docs/evidencias/g7-mapa-analitico-regional.md) e a operação em [`docs/manual-operacional.md`](docs/manual-operacional.md).
+> A decisão e a evidência cartográfica estão em [`docs/adr/0026-cnefe-alimenta-projecao-cartografica-derivada.md`](docs/adr/0026-cnefe-alimenta-projecao-cartografica-derivada.md) e [`docs/evidencias/g7-mapa-analitico-regional.md`](docs/evidencias/g7-mapa-analitico-regional.md).
 
 ## 1. Resumo executivo
 
 O projeto será uma plataforma local de inteligência cadastral que utiliza dados abertos mensais do Cadastro Nacional da Pessoa Jurídica (CNPJ), publicados pela Receita Federal, para reconstruir o histórico de empresas de uma região e detectar alterações relevantes entre competências.
 
-O sistema terá dois eixos complementares:
+O sistema terá três eixos complementares:
 
 1. **Inteligência regional:** indicadores sobre empresas, estabelecimentos, abertura, baixa e movimentação cadastral na região ao longo de 12 meses completos.
 2. **Monitoramento individual:** pesquisa de empresas, acompanhamento de uma carteira e linha do tempo com o antes e o depois de cada mudança detectada.
+3. **Inteligência territorial:** mapa analítico dos estabelecimentos ativos, com recortes por competência, município, atividade, tipo, porte, tributação e precisão espacial.
 
 O produto será executado inicialmente apenas em ambiente local, como uma aplicação monolítica em Django. A preparação regional e a importação das competências serão processos automatizados iniciados manualmente por comandos administrativos, sem edição manual dos dados, cron ou infraestrutura distribuída no MVP.
 
@@ -24,9 +26,11 @@ Existem dois marcos de entrega:
 - **30 de setembro de 2026:** meta interna para concluir um MVP utilizável de ponta a ponta;
 - **novembro de 2026:** entrega acadêmica oficial, após um período reservado para testes, correções, melhorias, documentação e preparação da apresentação.
 
-### Estado técnico em 26 de agosto de 2026
+### Estado técnico em 7 de setembro de 2026
 
-A implementação local antecipou o cronograma inicial. A janela oficial de 13 competências está publicada em revisões sanitizadas `r2`, as 12 comparações estão disponíveis, o portal monolítico está integrado e a regressão técnica de 83 testes foi aprovada. As contagens ativas somam 8.509.822 fotografias de empresa, 8.804.270 de estabelecimento, 4.018.362 societárias, 278.301 eventos e 15.751 métricas.
+A implementação local antecipou o cronograma inicial. A janela oficial de 13 competências está publicada em revisões sanitizadas `r2`, as 12 comparações estão disponíveis, o portal monolítico está integrado e a regressão técnica de 105 testes foi aprovada. As contagens ativas somam 8.509.822 fotografias de empresa, 8.804.270 de estabelecimento, 4.018.362 societárias, 278.301 eventos e 15.751 métricas.
+
+Uma projeção cartográfica derivada também está publicada: 3.483.375 ocorrências ativas nas 13 competências, 95,21% de cobertura geográfica e limites oficiais dos 35 municípios. O mapa autenticado usa CNEFE e malha do IBGE; o Mapbox atua somente como renderizador.
 
 Esse estado representa validação técnica interna, não a entrega acadêmica. O dashboard já permite recortes por intervalo, município e CNAE e produz rankings derivados de aumento de capital e ampliação societária. Identidade visual, artefatos de UX e as homologações funcionais, documentais, de experiência e acadêmicas continuam pendentes conforme as responsabilidades da equipe.
 
@@ -219,6 +223,7 @@ O projeto não deverá copiar código, credenciais, dumps ou tratamentos interno
 - autenticação de usuário;
 - página inicial com resumo do período;
 - navegação entre dashboard, pesquisa, empresas monitoradas, eventos e importações.
+- navegação autenticada para o mapa analítico regional.
 
 ### 8.2. Pesquisa e consulta de empresa
 
@@ -333,6 +338,21 @@ Para a mesma entidade, dimensão e intervalo, somente o evento mais específico 
 - registro do hash e da origem dos arquivos;
 - inspeção dos manifestos JSON e geração de relatórios auxiliares para QA.
 
+### 8.8. Mapa analítico regional
+
+- somente estabelecimentos com situação cadastral ativa na competência selecionada;
+- 35 municípios e 13 competências, exibindo exatamente uma competência por vez;
+- coordenadas derivadas gratuitamente do CNEFE 2022 e polígonos municipais do IBGE;
+- cascata auditável `endereço CNEFE → aproximação por CEP → não localizado`;
+- filtros por competência, município, CNAE principal, matriz/filial, porte, perfil tributário e precisão;
+- seis indicadores sincronizados, rankings de municípios e CNAEs e tabela acessível;
+- navegação progressiva `municípios → agregados por CEP → localizações`;
+- limite de cinco mil localizações detalhadas, com ampliação explícita da agregação;
+- autenticação da página e de todos os endpoints cartográficos;
+- preparação manual, idempotente, retomável, validada e publicada atomicamente;
+- operação degradada sem Mapbox, preservando indicadores, rankings e tabela;
+- token público `pk.` dedicado, mínimo, restrito a `http://localhost:8000` e fora do Git.
+
 ## 9. Requisitos não funcionais iniciais
 
 - **Desempenho:** consultas comuns devem responder em até dois segundos no ambiente local e no volume planejado.
@@ -352,6 +372,9 @@ Para a mesma entidade, dimensão e intervalo, somente o evento mais específico 
 - **Transparência de qualidade:** competências publicadas com alertas devem expor quantidade, tipo e entidades afetadas, sem misturar alertas com eventos cadastrais.
 - **Extensibilidade temporal:** quantidade e sequência de competências devem vir do manifesto; a validação fixa de 13 competências pertence somente à janela do MVP.
 - **Retenção:** fontes nacionais e workspaces serão temporários; pacotes ativos, manifestos e auditoria serão preservados conforme a política aprovada.
+- **Qualidade cartográfica:** projeções exigem 90% de cobertura global, 70% por município e integridade estrutural antes da publicação.
+- **Desempenho cartográfico:** resumo aquecido em até um segundo e agregações ou detalhe em até 1,5 segundo no ambiente local.
+- **Degradação cartográfica:** falha do Mapbox não pode impedir filtros, indicadores, rankings ou tabela municipal.
 
 ## 10. Sócios pessoa física e privacidade
 
@@ -437,6 +460,26 @@ Representa um município pela identidade canônica IBGE e mantém seu código TO
 ### `HistoricalWindow`
 
 Representa uma sequência contínua de competências, sua coorte, recorte, contrato e estado. Inicialmente somente uma janela publicada poderá estar ativa.
+
+### `GeographicSource`
+
+Registra tipo, versão, manifesto e hash dos 35 arquivos CNEFE ou dos limites municipais usados por uma projeção.
+
+### `AddressResolution`
+
+Registra a identidade canônica do endereço, método de localização, coordenada CNEFE escolhida, nível da fonte, candidatos, dispersão e motivo do resultado.
+
+### `CartographicProjection`
+
+Versiona a projeção derivada da janela, suas fontes, algoritmo, relatório de qualidade e estado de publicação. Somente uma projeção por janela pode estar publicada.
+
+### `CartographicObservation`
+
+Relaciona competência, estabelecimento, empresa, município, resolução espacial e atributos estritamente necessários aos filtros do mapa.
+
+### `MunicipalityBoundary`
+
+Preserva a geometria GeoJSON, caixa envolvente e centro de cada município para uma versão auditada da malha do IBGE.
 
 ## 12. Estratégia de armazenamento
 
@@ -595,6 +638,7 @@ Abaixo ou no limite de escalada, a competência poderá assumir `PUBLISHED_WITH_
 - pesquisa e detalhes da empresa;
 - linha do tempo de alterações;
 - lista de monitoramento;
+- mapa analítico regional autenticado;
 - autenticação;
 - testes das regras críticas;
 - execução local.
@@ -858,6 +902,7 @@ Uma tarefa somente poderá ser movida para **Concluído** quando:
 - filtros avançados;
 - gráficos e indicadores adicionais;
 - refinamentos visuais, de responsividade e acessibilidade;
+- homologação de UI/UX e configuração do token público Mapbox no ambiente de demonstração;
 - ampliação dos testes;
 - correções encontradas na homologação;
 - documentação e apresentação acadêmica finais.
@@ -934,7 +979,6 @@ O MVP interno somente será declarado concluído quando todos os itens P0 estive
 
 ## 24. Decisões ainda pendentes
 
-- nome do produto;
 - identidade visual, logo e paleta de cores;
 - personas prioritárias para validação;
 - indicadores finais do dashboard;

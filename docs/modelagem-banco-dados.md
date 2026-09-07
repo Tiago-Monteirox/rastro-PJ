@@ -1,10 +1,10 @@
-# Modelagem do banco de dados — Inteligência Cadastral Regional
+# Modelagem do banco de dados — Rastro PJ
 
 **Estado:** aprovada para implementação inicial  
 **Banco-alvo:** PostgreSQL  
 **Mapeamento:** Django 5.2 ORM  
-**Data:** 24 de agosto de 2026  
-**Escopo:** janela histórica, cadastros, snapshots, revisões, qualidade, eventos, métricas e watchlist
+**Atualização:** 7 de setembro de 2026
+**Escopo:** janela histórica, cadastros, snapshots, revisões, qualidade, eventos, métricas, watchlist e projeção cartográfica
 
 ## 1. Objetivos da modelagem
 
@@ -62,6 +62,17 @@ erDiagram
     IMPORT_BATCH ||--o{ DATA_QUALITY_ISSUE : detecta
     AUTH_USER ||--o{ WATCHLIST : cria
     COMPANY ||--o{ WATCHLIST : monitora
+
+    HISTORICAL_WINDOW ||--o{ CARTOGRAPHIC_PROJECTION : delimita
+    GEOGRAPHIC_SOURCE ||--o{ CARTOGRAPHIC_PROJECTION : alimenta
+    GEOGRAPHIC_SOURCE ||--o{ MUNICIPALITY_BOUNDARY : fornece
+    GEOGRAPHIC_SOURCE ||--o{ ADDRESS_RESOLUTION : referencia
+    MUNICIPALITY ||--o{ MUNICIPALITY_BOUNDARY : delimita
+    MUNICIPALITY ||--o{ ADDRESS_RESOLUTION : restringe
+    CARTOGRAPHIC_PROJECTION ||--o{ CARTOGRAPHIC_OBSERVATION : materializa
+    COMPETENCE_REVISION ||--o{ CARTOGRAPHIC_OBSERVATION : representa
+    ESTABLISHMENT ||--o{ CARTOGRAPHIC_OBSERVATION : localiza
+    ADDRESS_RESOLUTION ||--o{ CARTOGRAPHIC_OBSERVATION : justifica
 ```
 
 ### Leitura do modelo
@@ -603,6 +614,75 @@ Checks: exatamente um dos três alvos preenchido; revisões distintas; `from` an
 
 Campos: `id`, `user_id`, `company_id`, `created_at`. Constraint `UNIQUE(user_id, company_id)`. Usuário é o modelo de autenticação do Django; a tabela entra no ciclo oficial, não bloqueia o MVP interno.
 
+### 8.6. Projeção cartográfica derivada
+
+```mermaid
+erDiagram
+    GEOGRAPHIC_SOURCE ||--o{ MUNICIPALITY_BOUNDARY : fornece
+    GEOGRAPHIC_SOURCE ||--o{ ADDRESS_RESOLUTION : referencia
+    HISTORICAL_WINDOW ||--o{ CARTOGRAPHIC_PROJECTION : delimita
+    GEOGRAPHIC_SOURCE ||--o{ CARTOGRAPHIC_PROJECTION : alimenta
+    CARTOGRAPHIC_PROJECTION ||--o{ CARTOGRAPHIC_OBSERVATION : materializa
+    COMPETENCE_REVISION ||--o{ CARTOGRAPHIC_OBSERVATION : representa
+    ESTABLISHMENT ||--o{ CARTOGRAPHIC_OBSERVATION : localiza
+    COMPANY ||--o{ CARTOGRAPHIC_OBSERVATION : agrega
+    MUNICIPALITY ||--o{ CARTOGRAPHIC_OBSERVATION : restringe
+    ADDRESS_RESOLUTION ||--o{ CARTOGRAPHIC_OBSERVATION : justifica
+```
+
+#### `cartography_geographic_source`
+
+| Coluna | Tipo | Nulo | Regra |
+|---|---|---:|---|
+| `id` | UUID | não | PK |
+| `kind` | VARCHAR(32) | não | `CNEFE` ou `MUNICIPAL_BOUNDARIES` |
+| `version` | VARCHAR(40) | não | versão declarada da fonte |
+| `content_hash` | VARCHAR(64) | não | SHA-256 do inventário canônico |
+| `manifest` | JSONB | não | arquivos, tamanhos, hashes e metadados auditáveis |
+| `created_at` | TIMESTAMPTZ | não | auditoria |
+
+Constraints: `UNIQUE(kind, version, content_hash)` e hash hexadecimal SHA-256.
+
+#### `cartography_municipality_boundary`
+
+Campos: fonte, município, geometria GeoJSON, `bbox`, latitude e longitude do centro representativo. A combinação `(source_id, municipality_id)` é única e as coordenadas centrais são limitadas aos intervalos terrestres válidos. A geometria permanece em `JSONB`; a POC não requer PostGIS.
+
+#### `cartography_address_resolution`
+
+| Grupo | Colunas principais |
+|---|---|
+| Identidade | `id`, `source_id`, `municipality_id`, `algorithm_version`, `fingerprint` |
+| Endereço normalizado | `postal_code`, `normalized_street`, `normalized_number` |
+| Resultado | `method`, `latitude`, `longitude`, `cnefe_level`, `cnefe_address_code` |
+| Auditoria | `candidate_count`, `dispersion_meters`, `reason`, `created_at` |
+
+`method` assume `ADDRESS`, `POSTAL_CODE` ou `UNLOCATED`. A combinação fonte, município, algoritmo e fingerprint é única. Latitude e longitude existem juntas ou são ambas nulas; o nível CNEFE, quando presente, fica entre 1 e 6. A tabela registra a justificativa reutilizável da resolução, inclusive quando não há coordenada.
+
+#### `cartography_projection`
+
+| Coluna | Tipo | Nulo | Regra |
+|---|---|---:|---|
+| `id` | UUID | não | PK operacional |
+| `historical_window_id` | UUID | não | janela cadastral projetada |
+| `cnefe_source_id` | UUID | não | fonte de endereço e coordenada |
+| `boundary_source_id` | UUID | não | fonte das malhas municipais |
+| `registry_manifest_hash` | VARCHAR(64) | não | fixa a versão da evidência cadastral |
+| `algorithm_version` | VARCHAR(20) | não | versão da normalização e matching |
+| `status` | VARCHAR(32) | não | preparação, publicação, substituição ou falha |
+| `quality_report` | JSONB | não | cobertura global, municipal e erros estruturais |
+| contadores | BIGINT | não | elegíveis, endereço, CEP, não localizados e localizados |
+| timestamps | TIMESTAMPTZ | variável | início, fim e publicação |
+
+Os cinco insumos formam uma identidade idempotente. Um índice único parcial permite somente uma projeção `PUBLISHED` por janela. Uma candidata só substitui a anterior depois do quality gate e dentro de transação curta.
+
+#### `cartography_observation`
+
+Cada linha é uma ocorrência de estabelecimento ativo em uma revisão e projeção. Ela referencia projeção, revisão, estabelecimento, empresa, município e a resolução que justifica o resultado; materializa coordenadas, método, nível, CEP, CNAE principal, matriz/filial, porte e perfil tributário para consulta.
+
+Constraint principal: `UNIQUE(projection_id, revision_id, establishment_id)`. Coordenadas são um par ou ambas nulas, e nível CNEFE válido fica entre 1 e 6. Índices compostos partem de `(projection_id, revision_id)` e cobrem município, CNAE, coordenadas, matriz/filial, porte, perfil tributário e método de localização.
+
+Essa tabela é uma projeção recalculável: não altera `EstablishmentSnapshot`, não transforma CNEFE em fonte cadastral e pode ser descartada junto com uma projeção falha. Revisão, estabelecimento, empresa, município e resolução usam proteção referencial; as observações usam `CASCADE` somente em relação à projeção proprietária.
+
 ## 9. Regras de relacionamento e exclusão
 
 - janelas, competências, revisões publicadas, snapshots, eventos e métricas não sofrem hard delete pelo fluxo comum;
@@ -630,6 +710,11 @@ Campos: `id`, `user_id`, `company_id`, `created_at`. Constraint `UNIQUE(user_id,
 - `RegionalMonthlyMetric(revision_id, metric_type)`;
 - `DataQualityIssue(import_batch_id, severity, rule_code)`;
 - `ImportBatch(status, started_at)`.
+- `CartographicObservation(projection_id, revision_id, municipality_id)`;
+- `CartographicObservation(projection_id, revision_id, main_cnae_code)`;
+- `CartographicObservation(projection_id, revision_id, latitude, longitude)`;
+- índices equivalentes para matriz/filial, porte, perfil tributário e método de localização;
+- `AddressResolution(source_id, algorithm_version, municipality_id, postal_code)` e `(source_id, method)`.
 
 ### Dependentes de medição
 
@@ -695,6 +780,10 @@ A identificação PF persistida é somente `partner_key`, limitada à empresa. `
 - [x] manter TOM da fonte no snapshot e IBGE pela FK de município;
 - [x] usar `PROTECT`/`RESTRICT` na linhagem publicada e limpeza explícita apenas de staging/falha;
 - [x] adiar trigram, particionamento e índices JSONB até a medição real.
+- [x] manter CNEFE e malhas como fontes geográficas versionadas, separadas das fotografias da Receita;
+- [x] materializar observações cartográficas recalculáveis por projeção e competência;
+- [x] preservar método, nível, dispersão e motivo da resolução sem fabricar coordenadas;
+- [x] publicar no máximo uma projeção por janela após quality gate atômico.
 
 ## 15. Referências técnicas
 
@@ -702,3 +791,5 @@ A identificação PF persistida é somente `partner_key`, limitada à empresa. `
 - [Django 5.2 — model fields](https://github.com/django/django/blob/5.2.6/docs/ref/models/fields.txt), incluindo FKs, `on_delete` explícito e `JSONField`;
 - [`backend-cnpj-regional-validacao-arquitetural.md`](backend-cnpj-regional-validacao-arquitetural.md), invariantes de produto e arquitetura;
 - [`backend-cnpj-regional-plano-implementacao.md`](backend-cnpj-regional-plano-implementacao.md), fases, gates e backlog propostos.
+- [`adr/0026-cnefe-alimenta-projecao-cartografica-derivada.md`](adr/0026-cnefe-alimenta-projecao-cartografica-derivada.md), separação entre evidência cadastral e projeção cartográfica;
+- [`evidencias/g7-mapa-analitico-regional.md`](evidencias/g7-mapa-analitico-regional.md), execução integral, qualidade, volume e desempenho medidos.

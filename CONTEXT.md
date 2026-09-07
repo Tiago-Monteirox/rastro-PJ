@@ -1,4 +1,4 @@
-# Inteligência Cadastral Regional
+# Rastro PJ
 
 Este contexto descreve a linguagem do produto que transforma competências mensais do CNPJ em histórico empresarial regional e alterações rastreáveis.
 
@@ -68,6 +68,10 @@ _Evitar_: primeiro mês de eventos, abertura em massa
 Última competência publicada da janela, que representa o estado mais recente observado sem provar continuidade, encerramento ou qualquer alteração posterior.
 _Evitar_: estado futuro, fim da entidade
 
+**Competência cartográfica**:
+Única competência selecionada para compor o estado exibido no mapa analítico regional. A visualização inicia na competência publicada mais recente e nunca mistura fotografias de competências diferentes no mesmo estado do mapa.
+_Evitar_: intervalo cartográfico, soma de competências, posição atual permanente
+
 **Data de detecção**:
 Instante em que o importador calculou um evento derivado; não representa o dia exato em que a alteração cadastral ocorreu.
 _Evitar_: data do evento, data efetiva da Receita
@@ -105,6 +109,58 @@ _Evitar_: região ampliada, quatro cidades do piloto
 **Amostra técnica**:
 Subconjunto formado por Uberlândia, Uberaba, Araguari e Ituiutaba, utilizado somente para acelerar desenvolvimento e testes sem alterar o recorte geográfico do produto.
 _Evitar_: escopo reduzido, piloto de produção
+
+**Mapa analítico regional**:
+Visualização geográfica voltada à descoberta de concentrações, distribuições e padrões dos estabelecimentos no recorte geográfico. Apresenta dados agregados em escalas regionais e revela estabelecimentos individuais somente após aproximação ou aplicação de filtros.
+_Evitar_: localizador cadastral, mapa de todos os endereços sem agregação
+
+**Recorte cartográfico da POC**:
+Os mesmos 35 municípios do recorte geográfico do Triângulo Mineiro, exibidos integralmente pelo mapa analítico regional desde a POC.
+_Evitar_: somente Araguari e Uberlândia, amostra técnica de quatro municípios
+
+**Concentração cadastral de atividade**:
+Distribuição geográfica dos estabelecimentos elegíveis ao mapa segundo o CNAE principal na competência cartográfica. Indica presença cadastral observada, não demanda, faturamento, intensidade concorrencial ou oportunidade comercial comprovada.
+_Evitar_: tamanho do mercado, potencial de vendas, concorrência comprovada
+
+**Estabelecimento elegível ao mapa**:
+Ocorrência regional de um estabelecimento com situação cadastral `02 — ATIVA` na competência selecionada. Somente estabelecimentos elegíveis compõem o mapa analítico regional da POC.
+_Evitar_: empresa ativa, estabelecimento ativo em qualquer competência, demais situações cadastrais
+
+**Referência geográfica CNEFE**:
+Dados públicos do CNEFE 2022 do IBGE usados como fonte primária gratuita de coordenadas e qualidade posicional para localizar endereços da Receita. Não determinam situação cadastral nem substituem a fotografia da competência selecionada.
+_Evitar_: cadastro de empresas de 2022, fonte da situação cadastral, geocodificação Mapbox
+
+**Localização geográfica qualificada**:
+Resultado espacial de uma fotografia de estabelecimento acompanhado obrigatoriamente do método utilizado: correspondência CNEFE no nível do endereço, aproximação pelo CEP ou não localizado. A aproximação nunca é apresentada como endereço preciso.
+_Evitar_: coordenada exata, ponto sem origem, deslocamento aleatório
+
+**Endereço geograficamente ambíguo**:
+Correspondência textual no nível do endereço cujos melhores candidatos CNEFE possuem dispersão superior a 100 metros. Não recebe uma localização no nível do endereço e segue a aproximação pelo CEP.
+_Evitar_: média das coordenadas, endereço preciso, escolha arbitrária
+
+**Projeção cartográfica derivada**:
+Estrutura recalculável que relaciona fotografias da Receita a localizações geográficas qualificadas obtidas da referência CNEFE, sem transformar as coordenadas externas em atributos oficiais das fotografias cadastrais.
+_Evitar_: fotografia georreferenciada da Receita, coordenada oficial do CNPJ
+
+**Projeção cartográfica publicada**:
+Versão integral da projeção cartográfica derivada que concluiu o quality gate e está disponível para consulta. Uma preparação parcial ou reprovada nunca substitui a última versão publicada.
+_Evitar_: staging geográfico, resultado parcial, última tentativa
+
+**Preparação cartográfica**:
+Processo manual, idempotente e retomável que resolve endereços distintos contra uma referência geográfica validada, materializa as 13 competências da projeção cartográfica derivada e somente então as publica para consulta.
+_Evitar_: geocodificação na requisição, processamento parcial publicado
+
+**Quality gate cartográfico**:
+Conjunto de verificações estruturais e limites de cobertura que uma projeção cartográfica deve satisfazer integralmente antes de ser publicada para consulta.
+_Evitar_: inspeção apenas visual, publicação parcial, cobertura presumida
+
+**Nível cartográfico**:
+Etapa progressiva da exploração do mapa: visão regional por município, visão municipal por clusters e visão local por estabelecimento ou endereço compartilhado.
+_Evitar_: carregar todos os pontos na abertura, nível de precisão espacial
+
+**Agregação cartográfica progressiva**:
+Resposta completa adequada ao nível de zoom e à área visível, calculada pelo backend antes da renderização. Quando o detalhe ultrapassa o limite seguro, o servidor amplia a agregação em vez de truncar silenciosamente os dados.
+_Evitar_: GeoJSON integral, amostra silenciosa, clustering de conjunto incompleto
 
 **Ocorrência regional**:
 Fotografia de um estabelecimento cuja localização pertence ao recorte geográfico naquela competência específica.

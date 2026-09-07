@@ -13,6 +13,7 @@ Este manual descreve somente operações suportadas pelo repositório. Não cont
 | Dashboard | <http://localhost:8000/> | página inicial |
 | Pesquisa | <http://localhost:8000/empresas/> | CNPJ, razão social, nome fantasia e filtros regionais |
 | Eventos | <http://localhost:8000/eventos/> | filtros por tipo, entidade, competência e CNPJ |
+| Mapa analítico | <http://localhost:8000/mapa/> | exige login; uma competência por vez |
 | Monitoradas | <http://localhost:8000/monitoradas/> | exige login |
 | Importações | <http://localhost:8000/importacoes/> | exige login |
 | Healthcheck | <http://localhost:8000/health/> | verifica aplicação e banco |
@@ -126,7 +127,75 @@ docker compose run --rm web python manage.py recalculate_quality_metadata
 
 Execute um comando por vez. A primeira competência é baseline e não gera eventos; somente pares consecutivos participam do recálculo.
 
-## 7. Verificações de release
+## 7. Projeção cartográfica
+
+O mapa usa a Receita para elegibilidade cadastral, o CNEFE 2022 para referência de coordenadas, a malha municipal do IBGE para os 35 polígonos e o Mapbox somente para renderização. Nenhuma geocodificação paga é executada.
+
+Organize os arquivos fora do Git:
+
+```text
+var/data/cartography/
+├── cnefe-2022/
+│   ├── 3100708.csv
+│   └── ... 35 CSVs nomeados pelo código IBGE
+└── ibge-boundaries-2022/
+    ├── 3100708.geojson
+    └── ... 35 GeoJSON
+```
+
+Depois da publicação da janela histórica, execute:
+
+```bash
+make prepare-map
+```
+
+O comando equivalente e explícito é:
+
+```bash
+docker compose run --rm web python manage.py prepare_cartographic_projection \
+  /app/var/data/cartography/cnefe-2022 \
+  --boundary-directory /app/var/data/cartography/ibge-boundaries-2022 \
+  --download-missing-boundaries
+```
+
+A preparação é manual, idempotente e retomável. Ela só substitui uma projeção publicada depois de validar integralmente:
+
+- 13 competências publicadas;
+- 35 arquivos CNEFE e 35 limites municipais;
+- correspondência entre estabelecimento, empresa, revisão e janela;
+- cobertura geral mínima de 90%;
+- cobertura mínima de 70% por município;
+- coordenadas, níveis CNEFE e métodos de precisão coerentes.
+
+Uma queda superior a cinco pontos percentuais em relação à projeção anterior exige revisão explícita com `--approve-coverage-drop`. Falha ou interrupção não substitui a projeção válida.
+
+Para habilitar somente a camada visual, configure um token público dedicado no `.env`:
+
+```dotenv
+MAPBOX_PUBLIC_TOKEN=pk.seu-token-publico-restrito
+MAPBOX_STYLE_URL=mapbox://styles/mapbox/streets-v12
+```
+
+No painel do Mapbox, limite o token a privilégios públicos de leitura e à URL `http://localhost:8000`. Nunca use `sk.`; a aplicação bloqueia sua exposição. Recrie o serviço web após alterar o ambiente:
+
+```bash
+docker compose up -d --force-recreate web
+```
+
+Sem token ou durante falha do Mapbox, filtros, indicadores, rankings e tabela municipal continuam disponíveis.
+
+Resultado local de referência em 07/09/2026:
+
+| Medida | Resultado |
+|---|---:|
+| ocorrências elegíveis nas 13 competências | 3.483.375 |
+| localizadas | 3.316.568 |
+| cobertura global | 95,21% |
+| menor cobertura municipal | Frutal, 71,48% |
+| preparação integral | 10 min 02 s |
+| RSS máximo medido na indexação | 430 MiB |
+
+## 8. Verificações de release
 
 ```bash
 docker compose run --rm web python manage.py check
@@ -137,9 +206,9 @@ uv run ruff format --check .
 docker compose config --quiet
 ```
 
-Resultado interno de referência em 25/08/2026: 67 testes aprovados em 3,193 s, 104 arquivos conformes ao formatador e nenhum erro de lint, Django, migração ou Compose.
+Resultado interno de referência em 07/09/2026: 105 testes aprovados em PostgreSQL e nenhum erro de lint, formatação, Django, migração pendente, JavaScript ou Compose.
 
-## 8. Sanidade do banco oficial
+## 9. Sanidade do banco oficial
 
 Consulte a janela ativa pelo ORM para não misturar revisões publicadas de janelas históricas já substituídas:
 
@@ -165,7 +234,15 @@ As contagens de referência da janela ativa `r2` são:
 
 Diferença nessas contagens após uma reimportação idêntica é falha de idempotência e deve bloquear a entrega.
 
-## 9. Privacidade e retenção
+Para conferir a projeção cartográfica publicada:
+
+```bash
+docker compose exec web python manage.py shell -c "from apps.cartography.models import \
+CartographicProjection; p=CartographicProjection.objects.get(status='PUBLISHED'); \
+print(p.id, p.algorithm_version, p.eligible_count, p.located_count, p.quality_report['totals'])"
+```
+
+## 10. Privacidade e retenção
 
 Antes de considerar uma revisão publicável, verifique:
 
@@ -180,7 +257,7 @@ O expurgo de conteúdo pessoal proibido é uma exceção obrigatória à retenç
 
 Fontes nacionais ainda são workspace temporário. A remoção deve ocorrer apenas depois de confirmar pacote ativo, hashes, auditoria e possibilidade de redownload. Este manual não fornece comando recursivo de exclusão porque o alvo precisa ser resolvido e revisado em cada operação.
 
-## 10. Parar o ambiente
+## 11. Parar o ambiente
 
 ```bash
 docker compose down
@@ -188,7 +265,7 @@ docker compose down
 
 Esse comando preserva o volume `postgres_data`. Não use `docker compose down -v` no ambiente oficial: a opção `-v` remove o banco local.
 
-## 11. Recuperação de falha
+## 12. Recuperação de falha
 
 1. Não apague a janela ativa nem o volume.
 2. Consulte `docker compose logs --tail 200 web` e a tela de importações.
@@ -198,3 +275,5 @@ Esse comando preserva o volume `postgres_data`. Não use `docker compose down -v
 6. Confirme que a revisão ativa anterior continua publicada.
 
 Falhas de manifesto, contrato, hash ou quality gate devem deixar a última revisão válida intacta e registrar um batch `FAILED`; nunca se corrige um pacote editando linhas diretamente no PostgreSQL.
+
+Na cartografia, consulte o admin ou `CartographicProjection`: tentativas interrompidas ficam `FAILED`, reprovações ficam `FAILED_QUALITY_GATE` e a última projeção `PUBLISHED` permanece consultável. Repita o mesmo comando depois de corrigir a causa; conflitos já materializados não são duplicados.

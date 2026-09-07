@@ -14,10 +14,13 @@ A janela oficial `2025-08..2026-08` está preparada e publicada localmente:
 - 4.018.362 fotografias de participação societária;
 - 278.301 eventos derivados e recalculáveis;
 - 15.751 métricas regionais persistidas.
+- projeção cartográfica publicada com 3.483.375 ocorrências ativas;
+- 3.316.568 ocorrências localizadas pelo CNEFE, cobertura global de 95,21%;
+- limites oficiais dos 35 municípios e navegação cartográfica nas 13 competências.
 
-As contagens de fotografias são somas das 13 competências, não quantidades de empresas únicas. O portal, a pesquisa, o detalhe, a timeline, os eventos, o dashboard, a watchlist e o acompanhamento de importações estão integrados ao mesmo monólito. O dashboard aceita competência inicial e final, município e CNAE; também apresenta os maiores aumentos de capital social e as maiores ampliações líquidas do quadro societário no recorte.
+As contagens de fotografias e observações cartográficas são somas das 13 competências, não quantidades de empresas únicas. O portal, a pesquisa, o detalhe, a timeline, os eventos, o dashboard, o mapa analítico, a watchlist e o acompanhamento de importações estão integrados ao mesmo monólito. O dashboard aceita competência inicial e final, município e CNAE; também apresenta os maiores aumentos de capital social e as maiores ampliações líquidas do quadro societário no recorte.
 
-A suíte atual possui 83 testes e foi aprovada em PostgreSQL. `ruff check`, `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. As revisões de pesquisa e QA, documentação, UI/UX e do professor permanecem pendentes e não são substituídas por essas verificações internas.
+A suíte atual possui 105 testes e foi aprovada em PostgreSQL. `ruff check`, `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. As revisões de pesquisa e QA, documentação, UI/UX e do professor permanecem pendentes e não são substituídas por essas verificações internas.
 
 ## Indicadores e eventos
 
@@ -33,6 +36,7 @@ Indicadores avançados como taxas relativas, coortes de sobrevivência, concentr
 - espaço local suficiente para o volume PostgreSQL e os pacotes regionais;
 - preflight de 200 GiB livres antes da preparação das fontes nacionais completas;
 - `uv` para executar as verificações Python no Mac.
+- token público `pk.` do Mapbox para a camada visual; indicadores, rankings e tabela funcionam sem ele.
 
 Antes de baixar ou preparar fontes, confira o disco com `df -h`. O volume oficial já importado é muito maior que o ambiente sintético usado nos testes.
 
@@ -51,15 +55,24 @@ Acesse:
 - pesquisa de empresas: <http://localhost:8000/empresas/>;
 - eventos: <http://localhost:8000/eventos/>;
 - empresas monitoradas: <http://localhost:8000/monitoradas/>;
+- mapa analítico regional: <http://localhost:8000/mapa/>;
 - importações: <http://localhost:8000/importacoes/>;
 - healthcheck: <http://localhost:8000/health/>;
 - administração Django: <http://localhost:8000/admin/>.
 
-Importações e monitoradas exigem autenticação. Crie um usuário local, sem registrar a senha na documentação:
+Mapa, importações e monitoradas exigem autenticação. Crie um usuário local, sem registrar a senha na documentação:
 
 ```bash
 docker compose run --rm web python manage.py createsuperuser
 ```
+
+Para habilitar o mapa-base, configure em `.env` um token público dedicado, com privilégios mínimos e URL permitida `http://localhost:8000`:
+
+```dotenv
+MAPBOX_PUBLIC_TOKEN=pk.seu-token-publico-restrito
+```
+
+Nunca use um token `sk.`. A aplicação rejeita tokens que não comecem por `pk.` e mantém a tabela alternativa quando a credencial está ausente ou inválida.
 
 O PostgreSQL é publicado no Mac em `localhost:5433` por padrão; dentro do Compose, a aplicação usa `db:5432`. Nome do banco, usuário e senha devem ser lidos do arquivo `.env` local. Os valores de `.env.example` são apenas padrões de desenvolvimento e não comprovam os valores do ambiente em execução.
 
@@ -81,6 +94,7 @@ Os testes usam PostgreSQL, não SQLite, para exercitar índices parciais, regexe
 ```text
 config/             configuração e URLs raiz
 apps/geography/     municípios e recortes versionados
+apps/cartography/   fontes, resolução de endereços, projeções e consultas do mapa
 apps/pipeline/      preparação, janelas, revisões, lotes, qualidade e importação
 apps/registry/      empresas, estabelecimentos, sócios e snapshots
 apps/changes/       eventos derivados e métricas regionais
@@ -98,6 +112,7 @@ make logs        # acompanha o servidor Django
 make migrate     # aplica migrations
 make test        # executa a suíte no PostgreSQL
 make lint        # confere estilo e formatação
+make prepare-map # prepara ou confirma a projeção cartográfica
 ```
 
 ## Pipeline histórico
@@ -125,6 +140,16 @@ O comando `prepare_rf_window` descobre a coorte regional e gera um pacote Parque
 
 O pacote oficial ativo encontra-se em `var/data/packages/official-2025-08-2026-08-sanitized/window-manifest.json`. Uma reimportação idêntica é um no-op auditável: cria o registro operacional correspondente, sem duplicar fotografias, eventos ou métricas. Uma mudança de hash exige `--allow-revision` e publicação atômica de uma nova revisão.
 
+## Projeção cartográfica
+
+Os 35 CSVs municipais do CNEFE 2022 devem ficar em `var/data/cartography/cnefe-2022/`, nomeados pelo código IBGE, como `3170206.csv`. As malhas municipais são obtidas da API gratuita do IBGE e persistidas fora do Git.
+
+```bash
+make prepare-map
+```
+
+O comando inventaria e valida as fontes, resolve endereços distintos, aplica a cascata `endereço CNEFE → CEP → não localizado`, materializa as 13 competências, executa o quality gate e publica tudo atomicamente. A reexecução com os mesmos hashes é um no-op. Mapbox não recebe endereços e não é usado para geocodificação; apenas renderiza no navegador os dados consultados no Django.
+
 ## Privacidade
 
 CPF completo ou mascarado é proibido no PostgreSQL, nos pacotes, manifestos, relatórios e logs. Sócios PF recebem uma chave HMAC restrita à empresa durante a preparação; o documento mascarado é descartado antes do pacote. Sócios PJ nacionais usam a raiz CNPJ de oito caracteres alfanuméricos, inclusive quando a fonte fornece o CNPJ completo de 14 caracteres.
@@ -134,7 +159,7 @@ Os pacotes `r2` também sanitizam sequências incidentais semelhantes a document
 ## Limites
 
 - execução somente local, sem publicação externa;
-- sem cron, Celery, RabbitMQ, SPA ou API pública;
+- sem cron, Celery, RabbitMQ, Temporal, PostGIS, SPA ou API pública;
 - consultas mensais não prometem tempo real nem a data diária exata da mudança;
 - fontes nacionais permanecem temporárias e exigem limpeza manual segura após as validações previstas;
 - aprovação interna técnica não equivale à homologação acadêmica ou jurídica.
