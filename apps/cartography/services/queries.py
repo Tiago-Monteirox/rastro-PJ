@@ -18,6 +18,7 @@ from apps.cartography.models import (
     CnaeSubclass,
     MunicipalityBoundary,
 )
+from apps.changes.models import ChangeEvent
 from apps.pipeline.models import CompetenceRevision
 from apps.registry.models import CompanySnapshot, EstablishmentSnapshot
 
@@ -41,6 +42,10 @@ OPENING_PERIODS = {
     "6": "Últimos 6 meses",
     "12": "Últimos 12 meses",
 }
+ANALYSIS_MODES = {
+    "stock": "Concentração atual",
+    "dynamics": "Dinâmica territorial (experimental)",
+}
 
 
 class MapQueryError(Exception):
@@ -59,6 +64,7 @@ class MapSelection:
     tax_profile: str = ""
     precision: str = ""
     opening_period: str = ""
+    analysis_mode: str = "stock"
 
     def as_dict(self) -> dict[str, str]:
         return {
@@ -70,6 +76,7 @@ class MapSelection:
             "tax_profile": self.tax_profile,
             "precision": self.precision,
             "opening_period": self.opening_period,
+            "analysis_mode": self.analysis_mode,
         }
 
 
@@ -95,6 +102,7 @@ def map_page_context() -> dict:
             "precision_options": AddressResolution.Method.choices,
             "branch_options": (("1", "Matriz"), ("2", "Filial")),
             "opening_options": OPENING_PERIODS.items(),
+            "analysis_mode_options": ANALYSIS_MODES.items(),
         }
 
     revisions = _projection_revisions(projection)
@@ -142,6 +150,7 @@ def map_page_context() -> dict:
         "precision_options": AddressResolution.Method.choices,
         "branch_options": (("1", "Matriz"), ("2", "Filial")),
         "opening_options": OPENING_PERIODS.items(),
+        "analysis_mode_options": ANALYSIS_MODES.items(),
     }
 
 
@@ -187,6 +196,13 @@ def parse_selection(filters: Mapping[str, str]) -> MapSelection:
     opening_period = str(filters.get("opening_period", "")).strip()
     if opening_period and opening_period not in OPENING_PERIODS:
         raise MapQueryError("Período de abertura inválido.")
+    analysis_mode = str(filters.get("analysis_mode", "stock")).strip() or "stock"
+    if analysis_mode not in ANALYSIS_MODES:
+        raise MapQueryError("Modo de análise inválido.")
+    if analysis_mode == "dynamics" and opening_period:
+        raise MapQueryError(
+            "O período de abertura não pode ser combinado com a dinâmica territorial."
+        )
 
     return MapSelection(
         projection=projection,
@@ -199,6 +215,7 @@ def parse_selection(filters: Mapping[str, str]) -> MapSelection:
         tax_profile=tax_profile,
         precision=precision,
         opening_period=opening_period,
+        analysis_mode=analysis_mode,
     )
 
 
@@ -231,13 +248,18 @@ def bootstrap_payload(filters: Mapping[str, str]) -> dict:
         .order_by("-total", "municipality__name")
     )
     municipality_counts = {row["municipality_id"]: row for row in municipality_rows}
-    cnae_ranking = list(
-        observations.exclude(main_cnae_code="")
-        .values("main_cnae_code")
-        .annotate(total=Count("id"), companies=Count("company_id", distinct=True))
-        .order_by("-total", "main_cnae_code")[:10]
-    )
-    cnae_descriptions = _cnae_descriptions([row["main_cnae_code"] for row in cnae_ranking])
+    dynamics_analysis = None
+    if selection.analysis_mode == "dynamics":
+        dynamics_analysis = _dynamics_analysis(
+            selection,
+            current_observations=observations,
+            current_municipality_rows=municipality_rows,
+        )
+        rankings = dynamics_analysis["rankings"]
+        municipality_dynamics = dynamics_analysis["municipalities"]
+    else:
+        rankings = _stock_rankings(observations, municipality_rows)
+        municipality_dynamics = None
     return {
         "selection": selection.as_dict(),
         "projection": {
@@ -271,41 +293,29 @@ def bootstrap_payload(filters: Mapping[str, str]) -> dict:
                 "percentage": round(coverage * 100, 2),
             },
         },
-        "rankings": {
-            "municipalities": [
-                {
-                    "ibge_code": row["municipality__ibge_code"],
-                    "name": row["municipality__name"],
-                    "establishments": row["total"],
-                    "companies": row["companies"],
-                    "coverage_percentage": round(
-                        (row["located"] / row["total"] * 100) if row["total"] else 0,
-                        2,
-                    ),
-                }
-                for row in municipality_rows[:10]
-            ],
-            "cnaes": [
-                {
-                    "code": row["main_cnae_code"],
-                    "formatted_code": _format_cnae_code(row["main_cnae_code"]),
-                    "description": cnae_descriptions.get(row["main_cnae_code"], ""),
-                    "label": _cnae_label(
-                        row["main_cnae_code"],
-                        cnae_descriptions.get(row["main_cnae_code"], ""),
-                    ),
-                    "establishments": row["total"],
-                    "companies": row["companies"],
-                }
-                for row in cnae_ranking
-            ],
-        },
-        "municipalities": _municipality_feature_collection(selection, municipality_counts),
+        "dynamics": dynamics_analysis["summary"] if dynamics_analysis else None,
+        "rankings": rankings,
+        "municipalities": _municipality_feature_collection(
+            selection,
+            municipality_counts,
+            dynamics=municipality_dynamics,
+        ),
     }
 
 
 def locations_payload(filters: Mapping[str, str]) -> dict:
     selection = parse_selection(filters)
+    if selection.analysis_mode == "dynamics":
+        return {
+            "selection": selection.as_dict(),
+            "level": "municipality",
+            "requested_level": "municipality",
+            "aggregation_reason": (
+                "A dinâmica territorial experimental compara municípios; "
+                "os pontos pertencem ao modo de concentração atual."
+            ),
+            "locations": {"type": "FeatureCollection", "features": []},
+        }
     west, south, east, north = _parse_bounds(filters)
     zoom = _parse_float(filters.get("zoom"), "Zoom", minimum=0, maximum=24)
     observations = filtered_observations(selection).filter(
@@ -359,6 +369,10 @@ def locations_payload(filters: Mapping[str, str]) -> dict:
 
 def location_details_payload(filters: Mapping[str, str]) -> dict:
     selection = parse_selection(filters)
+    if selection.analysis_mode == "dynamics":
+        raise MapQueryError(
+            "Detalhes de estabelecimentos estão disponíveis no modo de concentração atual."
+        )
     latitude = _parse_decimal(filters.get("latitude"), "Latitude", -90, 90)
     longitude = _parse_decimal(filters.get("longitude"), "Longitude", -180, 180)
     location_method = str(filters.get("location_method", "")).strip()
@@ -453,10 +467,14 @@ def location_details_payload(filters: Mapping[str, str]) -> dict:
     }
 
 
-def filtered_observations(selection: MapSelection) -> QuerySet:
+def filtered_observations(
+    selection: MapSelection,
+    *,
+    revision: CompetenceRevision | None = None,
+) -> QuerySet:
     queryset = CartographicObservation.objects.filter(
         projection=selection.projection,
-        revision=selection.revision,
+        revision=revision or selection.revision,
     )
     if selection.municipality:
         queryset = queryset.filter(municipality__ibge_code=selection.municipality)
@@ -474,6 +492,224 @@ def filtered_observations(selection: MapSelection) -> QuerySet:
         start, end = _opening_date_range(selection)
         queryset = queryset.filter(activity_start_date__range=(start, end))
     return queryset
+
+
+def _stock_rankings(observations: QuerySet, municipality_rows: list[dict]) -> dict:
+    cnae_ranking = list(
+        observations.exclude(main_cnae_code="")
+        .values("main_cnae_code")
+        .annotate(total=Count("id"), companies=Count("company_id", distinct=True))
+        .order_by("-total", "main_cnae_code")[:10]
+    )
+    cnae_descriptions = _cnae_descriptions([row["main_cnae_code"] for row in cnae_ranking])
+    return {
+        "municipalities": [
+            {
+                "ibge_code": row["municipality__ibge_code"],
+                "name": row["municipality__name"],
+                "establishments": row["total"],
+                "companies": row["companies"],
+                "coverage_percentage": round(
+                    (row["located"] / row["total"] * 100) if row["total"] else 0,
+                    2,
+                ),
+            }
+            for row in municipality_rows[:10]
+        ],
+        "cnaes": [
+            {
+                "code": row["main_cnae_code"],
+                "formatted_code": _format_cnae_code(row["main_cnae_code"]),
+                "description": cnae_descriptions.get(row["main_cnae_code"], ""),
+                "label": _cnae_label(
+                    row["main_cnae_code"],
+                    cnae_descriptions.get(row["main_cnae_code"], ""),
+                ),
+                "establishments": row["total"],
+                "companies": row["companies"],
+            }
+            for row in cnae_ranking
+        ],
+    }
+
+
+def _dynamics_analysis(
+    selection: MapSelection,
+    *,
+    current_observations: QuerySet,
+    current_municipality_rows: list[dict],
+) -> dict:
+    previous_revision = _previous_revision(selection)
+    previous_observations = filtered_observations(selection, revision=previous_revision)
+    previous_municipality_rows = list(
+        previous_observations.values(
+            "municipality_id",
+            "municipality__ibge_code",
+            "municipality__name",
+        )
+        .annotate(total=Count("id"))
+        .order_by()
+    )
+    comparison_events = ChangeEvent.objects.filter(
+        historical_window=selection.projection.historical_window,
+        from_revision=previous_revision,
+        to_revision=selection.revision,
+        establishment_id__isnull=False,
+    )
+    opening_events = comparison_events.filter(event_type="ESTABLISHMENT_OPENED")
+    closing_events = comparison_events.filter(event_type="ESTABLISHMENT_CLOSED")
+    opened_observations = current_observations.filter(
+        establishment_id__in=opening_events.values("establishment_id")
+    )
+    closed_observations = previous_observations.filter(
+        establishment_id__in=closing_events.values("establishment_id")
+    )
+
+    current_by_municipality = {row["municipality_id"]: row for row in current_municipality_rows}
+    previous_by_municipality = {row["municipality_id"]: row for row in previous_municipality_rows}
+    openings_by_municipality = _counts_by(opened_observations, "municipality_id")
+    closures_by_municipality = _counts_by(closed_observations, "municipality_id")
+    municipality_ids = (
+        set(current_by_municipality)
+        | set(previous_by_municipality)
+        | set(openings_by_municipality)
+        | set(closures_by_municipality)
+    )
+    municipality_dynamics = {}
+    municipality_ranking = []
+    for municipality_id in municipality_ids:
+        current = current_by_municipality.get(municipality_id, {})
+        previous = previous_by_municipality.get(municipality_id, {})
+        current_total = current.get("total", 0)
+        previous_total = previous.get("total", 0)
+        openings = openings_by_municipality.get(municipality_id, 0)
+        closures = closures_by_municipality.get(municipality_id, 0)
+        stock_change = current_total - previous_total
+        lifecycle_balance = openings - closures
+        row = {
+            "ibge_code": current.get("municipality__ibge_code")
+            or previous.get("municipality__ibge_code"),
+            "name": current.get("municipality__name") or previous.get("municipality__name"),
+            "previous_establishments": previous_total,
+            "establishments": current_total,
+            "stock_change": stock_change,
+            "change_percentage": _percentage_change(previous_total, stock_change),
+            "openings": openings,
+            "closures": closures,
+            "lifecycle_balance": lifecycle_balance,
+            "other_effects": stock_change - lifecycle_balance,
+        }
+        municipality_dynamics[municipality_id] = row
+        if stock_change or openings or closures:
+            municipality_ranking.append(row)
+    municipality_ranking.sort(
+        key=lambda row: (-abs(row["stock_change"]), -row["stock_change"], row["name"])
+    )
+
+    cnae_dynamics = _cnae_dynamics(
+        current_observations=current_observations,
+        previous_observations=previous_observations,
+        opened_observations=opened_observations,
+        closed_observations=closed_observations,
+    )
+    current_total = sum(row["total"] for row in current_municipality_rows)
+    previous_total = sum(row["total"] for row in previous_municipality_rows)
+    openings = sum(openings_by_municipality.values())
+    closures = sum(closures_by_municipality.values())
+    stock_change = current_total - previous_total
+    lifecycle_balance = openings - closures
+    scale_max = max(
+        [abs(row["stock_change"]) for row in municipality_dynamics.values()],
+        default=1,
+    )
+    return {
+        "summary": {
+            "experimental": True,
+            "from_competence": previous_revision.window_competence.competence.strftime("%Y-%m"),
+            "to_competence": selection.competence,
+            "previous_establishments": previous_total,
+            "current_establishments": current_total,
+            "stock_change": stock_change,
+            "change_percentage": _percentage_change(previous_total, stock_change),
+            "openings": openings,
+            "closures": closures,
+            "lifecycle_balance": lifecycle_balance,
+            "other_effects": stock_change - lifecycle_balance,
+            "scale_max": max(scale_max, 1),
+        },
+        "municipalities": municipality_dynamics,
+        "rankings": {
+            "municipalities": municipality_ranking[:10],
+            "cnaes": cnae_dynamics[:10],
+        },
+    }
+
+
+def _cnae_dynamics(
+    *,
+    current_observations: QuerySet,
+    previous_observations: QuerySet,
+    opened_observations: QuerySet,
+    closed_observations: QuerySet,
+) -> list[dict]:
+    current = _counts_by(current_observations.exclude(main_cnae_code=""), "main_cnae_code")
+    previous = _counts_by(previous_observations.exclude(main_cnae_code=""), "main_cnae_code")
+    openings = _counts_by(opened_observations.exclude(main_cnae_code=""), "main_cnae_code")
+    closures = _counts_by(closed_observations.exclude(main_cnae_code=""), "main_cnae_code")
+    codes = set(current) | set(previous) | set(openings) | set(closures)
+    descriptions = _cnae_descriptions(list(codes))
+    rows = []
+    for code in codes:
+        current_total = current.get(code, 0)
+        previous_total = previous.get(code, 0)
+        stock_change = current_total - previous_total
+        opened = openings.get(code, 0)
+        closed = closures.get(code, 0)
+        if not (stock_change or opened or closed):
+            continue
+        lifecycle_balance = opened - closed
+        rows.append(
+            {
+                "code": code,
+                "formatted_code": _format_cnae_code(code),
+                "description": descriptions.get(code, ""),
+                "label": _cnae_label(code, descriptions.get(code, "")),
+                "previous_establishments": previous_total,
+                "establishments": current_total,
+                "stock_change": stock_change,
+                "change_percentage": _percentage_change(previous_total, stock_change),
+                "openings": opened,
+                "closures": closed,
+                "other_effects": stock_change - lifecycle_balance,
+            }
+        )
+    rows.sort(key=lambda row: (-abs(row["stock_change"]), -row["stock_change"], row["code"]))
+    return rows
+
+
+def _counts_by(queryset: QuerySet, field: str) -> dict:
+    return {
+        row[field]: row["total"]
+        for row in queryset.values(field).annotate(total=Count("id")).order_by()
+    }
+
+
+def _percentage_change(previous: int, change: int) -> float | None:
+    return round(change / previous * 100, 2) if previous else None
+
+
+def _previous_revision(selection: MapSelection) -> CompetenceRevision:
+    revisions = _projection_revisions(selection.projection)
+    revision_ids = [revision.pk for revision in revisions]
+    try:
+        current_index = revision_ids.index(selection.revision.pk)
+    except ValueError as exc:
+        raise MapQueryError("A competência selecionada não pertence à projeção publicada.") from exc
+    if current_index == 0:
+        raise MapQueryError(
+            "A primeira competência é o baseline e não possui comparação territorial anterior."
+        )
+    return revisions[current_index - 1]
 
 
 def _opening_date_range(selection: MapSelection) -> tuple[date, date]:
@@ -595,7 +831,10 @@ def _municipality_points(selection: MapSelection, observations: QuerySet) -> dic
 
 
 def _municipality_feature_collection(
-    selection: MapSelection, municipality_counts: dict[int, dict]
+    selection: MapSelection,
+    municipality_counts: dict[int, dict],
+    *,
+    dynamics: dict[int, dict] | None = None,
 ) -> dict:
     features = []
     boundaries = MunicipalityBoundary.objects.filter(
@@ -607,6 +846,18 @@ def _municipality_feature_collection(
             {"total": 0, "companies": 0, "located": 0},
         )
         coverage = row["located"] / row["total"] * 100 if row["total"] else 0
+        dynamic_values = (dynamics or {}).get(
+            boundary.municipality_id,
+            {
+                "previous_establishments": 0,
+                "stock_change": 0,
+                "change_percentage": None,
+                "openings": 0,
+                "closures": 0,
+                "lifecycle_balance": 0,
+                "other_effects": 0,
+            },
+        )
         features.append(
             {
                 "type": "Feature",
@@ -619,6 +870,18 @@ def _municipality_feature_collection(
                     "establishments": row["total"],
                     "companies": row["companies"],
                     "coverage_percentage": round(coverage, 2),
+                    **{
+                        key: dynamic_values[key]
+                        for key in (
+                            "previous_establishments",
+                            "stock_change",
+                            "change_percentage",
+                            "openings",
+                            "closures",
+                            "lifecycle_balance",
+                            "other_effects",
+                        )
+                    },
                 },
             }
         )

@@ -13,6 +13,7 @@ from apps.cartography.models import (
     GeographicSource,
     MunicipalityBoundary,
 )
+from apps.changes.models import ChangeEvent
 from apps.geography.models import ScopeMunicipality
 from apps.pipeline.models import CompetenceRevision, HistoricalWindow
 from apps.registry.models import (
@@ -23,6 +24,7 @@ from apps.registry.models import (
 )
 from apps.test_support import (
     create_company_with_establishment,
+    create_import_batch,
     create_municipality,
     create_revision,
     create_scope,
@@ -38,9 +40,17 @@ class CartographicPortalTests(TestCase):
         cls.municipality = create_municipality()
         ScopeMunicipality.objects.create(scope=cls.scope, municipality=cls.municipality)
         cls.window = create_window(scope=cls.scope, status=HistoricalWindow.Status.ACTIVE)
+        _, cls.previous_revision = create_revision(
+            window=cls.window,
+            competence=date(2026, 7, 1),
+            position=11,
+            status=CompetenceRevision.Status.PUBLISHED,
+            hash_char="e",
+        )
         _, cls.revision = create_revision(
             window=cls.window,
             competence=date(2026, 8, 1),
+            position=12,
             status=CompetenceRevision.Status.PUBLISHED,
         )
         cls.cnefe_source = GeographicSource.objects.create(
@@ -98,6 +108,16 @@ class CartographicPortalTests(TestCase):
             mei_optant=False,
             record_hash="7" * 64,
         )
+        CompanySnapshot.objects.create(
+            revision=cls.previous_revision,
+            company=cls.company,
+            legal_name="Empresa Cartográfica Ltda",
+            legal_name_search="EMPRESA CARTOGRAFICA LTDA",
+            company_size_code="01",
+            simples_optant=True,
+            mei_optant=False,
+            record_hash="a" * 64,
+        )
         EstablishmentSnapshot.objects.create(
             revision=cls.revision,
             establishment=cls.establishment,
@@ -117,6 +137,26 @@ class CartographicPortalTests(TestCase):
             municipality_tom_code=cls.municipality.tom_code,
             is_in_region=True,
             record_hash="8" * 64,
+        )
+        EstablishmentSnapshot.objects.create(
+            revision=cls.previous_revision,
+            establishment=cls.establishment,
+            branch_type=EstablishmentSnapshot.BRANCH_TYPE_HEADQUARTERS,
+            trade_name="Ponto no mapa",
+            trade_name_search="PONTO NO MAPA",
+            registration_status_code="02",
+            activity_start_date=date(2026, 4, 10),
+            main_cnae_code="4711302",
+            street_type="AVENIDA",
+            street_name="AFONSO PENA",
+            street_number="745",
+            neighborhood="CENTRO",
+            postal_code="38400130",
+            state_code="MG",
+            municipality=cls.municipality,
+            municipality_tom_code=cls.municipality.tom_code,
+            is_in_region=True,
+            record_hash="b" * 64,
         )
         cls.resolution = AddressResolution.objects.create(
             source=cls.cnefe_source,
@@ -152,10 +192,66 @@ class CartographicPortalTests(TestCase):
             company_size_code="01",
             tax_profile=CartographicObservation.TaxProfile.SIMPLES,
         )
+        CartographicObservation.objects.create(
+            projection=cls.projection,
+            revision=cls.previous_revision,
+            establishment=cls.establishment,
+            company=cls.company,
+            municipality=cls.municipality,
+            address_resolution=cls.resolution,
+            latitude=cls.resolution.latitude,
+            longitude=cls.resolution.longitude,
+            location_method=cls.resolution.method,
+            cnefe_level=1,
+            postal_code="38400130",
+            main_cnae_code="4711302",
+            activity_start_date=date(2026, 4, 10),
+            branch_type="1",
+            company_size_code="01",
+            tax_profile=CartographicObservation.TaxProfile.SIMPLES,
+        )
         cls.user = get_user_model().objects.create_user(username="mapa", password="senha-local")
 
     def setUp(self):
         self.client.force_login(self.user)
+
+    def create_comparison_observation(self, *, revision, cnpj_basic, cnpj):
+        company = Company.objects.create(cnpj_basic=cnpj_basic)
+        establishment = Establishment.objects.create(company=company, cnpj=cnpj)
+        CartographicObservation.objects.create(
+            projection=self.projection,
+            revision=revision,
+            establishment=establishment,
+            company=company,
+            municipality=self.municipality,
+            address_resolution=self.resolution,
+            latitude=self.resolution.latitude,
+            longitude=self.resolution.longitude,
+            location_method=self.resolution.method,
+            cnefe_level=1,
+            postal_code="38400130",
+            main_cnae_code="4711302",
+            activity_start_date=date(2026, 8, 1),
+            branch_type="2",
+            company_size_code="01",
+            tax_profile=CartographicObservation.TaxProfile.SIMPLES,
+        )
+        return establishment
+
+    def create_comparison_event(self, *, establishment, event_type, hash_char):
+        return ChangeEvent.objects.create(
+            event_key=hash_char * 64,
+            historical_window=self.window,
+            from_revision=self.previous_revision,
+            to_revision=self.revision,
+            entity_type=ChangeEvent.EntityType.ESTABLISHMENT,
+            establishment=establishment,
+            dimension="lifecycle",
+            event_type=event_type,
+            previous_value=None if event_type == "ESTABLISHMENT_OPENED" else {"status": "02"},
+            new_value={"status": "02"} if event_type == "ESTABLISHMENT_OPENED" else None,
+            import_batch=create_import_batch(revision=self.revision),
+        )
 
     def test_page_and_every_api_require_authentication(self):
         self.client.logout()
@@ -217,6 +313,8 @@ class CartographicPortalTests(TestCase):
         self.assertEqual(payload["indicators"]["geographic_coverage"]["percentage"], 100.0)
         self.assertEqual(payload["selection"]["competence"], "2026-08")
         self.assertEqual(payload["selection"]["opening_period"], "6")
+        self.assertEqual(payload["selection"]["analysis_mode"], "stock")
+        self.assertIsNone(payload["dynamics"])
         self.assertEqual(len(payload["municipalities"]["features"]), 1)
         self.assertEqual(
             payload["municipalities"]["features"][0]["properties"]["bbox"],
@@ -259,6 +357,138 @@ class CartographicPortalTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("Período de abertura inválido", response.json()["error"])
+
+    def test_dynamics_compares_consecutive_competences_and_counts_openings(self):
+        establishment = self.create_comparison_observation(
+            revision=self.revision,
+            cnpj_basic="87654321",
+            cnpj="87654321000198",
+        )
+        self.create_comparison_event(
+            establishment=establishment,
+            event_type="ESTABLISHMENT_OPENED",
+            hash_char="1",
+        )
+
+        response = self.client.get(
+            "/mapa/api/resumo/",
+            {"competence": "2026-08", "analysis_mode": "dynamics"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["selection"]["analysis_mode"], "dynamics")
+        self.assertEqual(payload["dynamics"]["from_competence"], "2026-07")
+        self.assertEqual(payload["dynamics"]["to_competence"], "2026-08")
+        self.assertEqual(payload["dynamics"]["previous_establishments"], 1)
+        self.assertEqual(payload["dynamics"]["current_establishments"], 2)
+        self.assertEqual(payload["dynamics"]["stock_change"], 1)
+        self.assertEqual(payload["dynamics"]["change_percentage"], 100.0)
+        self.assertEqual(payload["dynamics"]["openings"], 1)
+        self.assertEqual(payload["dynamics"]["closures"], 0)
+        self.assertEqual(payload["dynamics"]["lifecycle_balance"], 1)
+        self.assertEqual(payload["dynamics"]["other_effects"], 0)
+        properties = payload["municipalities"]["features"][0]["properties"]
+        self.assertEqual(properties["previous_establishments"], 1)
+        self.assertEqual(properties["establishments"], 2)
+        self.assertEqual(properties["stock_change"], 1)
+        self.assertEqual(payload["rankings"]["municipalities"][0]["stock_change"], 1)
+        self.assertEqual(payload["rankings"]["cnaes"][0]["stock_change"], 1)
+
+        headquarters = self.client.get(
+            "/mapa/api/resumo/",
+            {
+                "competence": "2026-08",
+                "analysis_mode": "dynamics",
+                "branch_type": "1",
+            },
+        ).json()["dynamics"]
+        self.assertEqual(headquarters["previous_establishments"], 1)
+        self.assertEqual(headquarters["current_establishments"], 1)
+        self.assertEqual(headquarters["stock_change"], 0)
+        self.assertEqual(headquarters["openings"], 0)
+
+    def test_dynamics_counts_confirmed_closures(self):
+        establishment = self.create_comparison_observation(
+            revision=self.previous_revision,
+            cnpj_basic="87654321",
+            cnpj="87654321000198",
+        )
+        self.create_comparison_event(
+            establishment=establishment,
+            event_type="ESTABLISHMENT_CLOSED",
+            hash_char="2",
+        )
+
+        response = self.client.get(
+            "/mapa/api/resumo/",
+            {"competence": "2026-08", "analysis_mode": "dynamics"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        dynamics = response.json()["dynamics"]
+        self.assertEqual(dynamics["previous_establishments"], 2)
+        self.assertEqual(dynamics["current_establishments"], 1)
+        self.assertEqual(dynamics["stock_change"], -1)
+        self.assertEqual(dynamics["closures"], 1)
+        self.assertEqual(dynamics["lifecycle_balance"], -1)
+        self.assertEqual(dynamics["other_effects"], 0)
+
+    def test_dynamics_rejects_baseline_and_incompatible_opening_filter(self):
+        baseline = self.client.get(
+            "/mapa/api/resumo/",
+            {"competence": "2026-07", "analysis_mode": "dynamics"},
+        )
+        incompatible = self.client.get(
+            "/mapa/api/resumo/",
+            {
+                "competence": "2026-08",
+                "analysis_mode": "dynamics",
+                "opening_period": "6",
+            },
+        )
+
+        self.assertEqual(baseline.status_code, 400)
+        self.assertIn("baseline", baseline.json()["error"])
+        self.assertEqual(incompatible.status_code, 400)
+        self.assertIn("não pode ser combinado", incompatible.json()["error"])
+
+    def test_unknown_analysis_mode_is_rejected(self):
+        response = self.client.get(
+            "/mapa/api/resumo/",
+            {"competence": "2026-08", "analysis_mode": "forecast"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Modo de análise inválido", response.json()["error"])
+
+    def test_dynamics_hides_individual_points_and_preserves_page_selection(self):
+        locations = self.client.get(
+            "/mapa/api/localizacoes/",
+            {"competence": "2026-08", "analysis_mode": "dynamics"},
+        )
+        details = self.client.get(
+            "/mapa/api/estabelecimentos/",
+            {
+                "competence": "2026-08",
+                "analysis_mode": "dynamics",
+                "latitude": "-18.900000",
+                "longitude": "-48.200000",
+            },
+        )
+        page = self.client.get(
+            "/mapa/",
+            {"competence": "2026-08", "analysis_mode": "dynamics"},
+        )
+
+        self.assertEqual(locations.status_code, 200)
+        self.assertEqual(locations.json()["locations"]["features"], [])
+        self.assertIn("compara municípios", locations.json()["aggregation_reason"])
+        self.assertEqual(details.status_code, 400)
+        self.assertIn("concentração atual", details.json()["error"])
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'option value="dynamics" selected')
+        self.assertContains(page, "Dinâmica territorial experimental")
 
     def test_invalid_filter_is_rejected_instead_of_silently_ignored(self):
         response = self.client.get(
