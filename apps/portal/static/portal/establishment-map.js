@@ -8,6 +8,10 @@
   const status = document.querySelector("#map-status");
   const initialElement = document.querySelector("#map-initial-data");
   const number = new Intl.NumberFormat("pt-BR");
+  const percentageNumber = new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
   const initialData = initialElement ? JSON.parse(initialElement.textContent) : null;
   let currentData = initialData;
   let map = null;
@@ -47,37 +51,153 @@
     element.replaceChildren(...children);
   };
 
-  const rankingRows = (items, label, value) =>
-    items.map((item) => {
+  const signedNumber = (value) => `${value > 0 ? "+" : ""}${number.format(value)}`;
+
+  const formattedPercentage = (value, { signed = false } = {}) => {
+    if (value === null || value === undefined) return "Sem base anterior";
+    const prefix = signed && value > 0 ? "+" : "";
+    return `${prefix}${percentageNumber.format(value)}%`;
+  };
+
+  const movementClass = (value) => {
+    if (value > 0) return "positive-value";
+    if (value < 0) return "negative-value";
+    return "neutral-value";
+  };
+
+  const rankingRows = (
+    items,
+    label,
+    value,
+    formatter = number.format.bind(number),
+    colorizeMovement = false,
+  ) => {
+    if (!items.length) {
+      const empty = document.createElement("li");
+      empty.className = "map-ranking-empty";
+      empty.textContent = "Nenhuma variação no recorte.";
+      return [empty];
+    }
+    return items.map((item) => {
       const row = document.createElement("li");
       const name = document.createElement("span");
       const total = document.createElement("strong");
+      const rawValue = value(item);
       name.textContent = label(item);
-      total.textContent = number.format(value(item));
+      total.textContent = formatter(rawValue);
+      if (colorizeMovement) total.classList.add(movementClass(rawValue));
       row.append(name, total);
       return row;
     });
+  };
 
-  const renderMunicipalityTable = (features) => {
+  const renderMunicipalityTable = (data) => {
+    const features = data.municipalities.features;
+    const isDynamics = Boolean(data.dynamics);
+    const head = document.querySelector("#map-municipality-head");
     const body = document.querySelector("#map-municipality-body");
+    const headers = isDynamics
+      ? ["Município", "Anterior", "Atual", "Variação", "Taxa", "Aberturas", "Baixas"]
+      : ["Município", "Estabelecimentos", "Empresas", "Cobertura"];
+    const headerRow = document.createElement("tr");
+    headers.forEach((value) => {
+      const header = document.createElement("th");
+      header.textContent = value;
+      headerRow.append(header);
+    });
+    replaceChildren(head, [headerRow]);
     const rows = [...features]
       .sort((left, right) => left.properties.name.localeCompare(right.properties.name, "pt-BR"))
       .map((feature) => {
         const row = document.createElement("tr");
-        const values = [
-          feature.properties.name,
-          number.format(feature.properties.establishments),
-          number.format(feature.properties.companies),
-          `${feature.properties.coverage_percentage.toLocaleString("pt-BR")}%`,
-        ];
-        values.forEach((value) => {
+        const properties = feature.properties;
+        const values = isDynamics
+          ? [
+            properties.name,
+            number.format(properties.previous_establishments),
+            number.format(properties.establishments),
+            signedNumber(properties.stock_change),
+            formattedPercentage(properties.change_percentage, { signed: true }),
+            number.format(properties.openings),
+            number.format(properties.closures),
+          ]
+          : [
+            properties.name,
+            number.format(properties.establishments),
+            number.format(properties.companies),
+            `${properties.coverage_percentage.toLocaleString("pt-BR")}%`,
+          ];
+        values.forEach((value, index) => {
           const cell = document.createElement("td");
           cell.textContent = value;
+          if (isDynamics && index === 3) {
+            cell.classList.add(movementClass(properties.stock_change));
+          }
           row.append(cell);
         });
         return row;
       });
     replaceChildren(body, rows);
+  };
+
+  const setDynamicsMetric = (name, value, formatter = number.format.bind(number)) => {
+    const element = document.querySelector(`[data-dynamics-metric="${name}"]`);
+    if (!element) return;
+    element.textContent = formatter(value);
+    if (name === "change" || name === "rate") {
+      element.classList.remove("positive-value", "negative-value", "neutral-value");
+      element.classList.add(movementClass(value));
+    }
+  };
+
+  const competenceLabel = (value) => {
+    const [year, month] = value.split("-");
+    return `${month}/${year}`;
+  };
+
+  const renderModePresentation = (data) => {
+    const dynamics = data.dynamics;
+    const isDynamics = Boolean(dynamics);
+    document.querySelector("#map-stock-indicators").hidden = isDynamics;
+    document.querySelector("#map-dynamics-indicators").hidden = !isDynamics;
+    document.querySelector("#map-dynamics-note").hidden = !isDynamics;
+    document.querySelector("#map-stock-legend").hidden = isDynamics;
+    document.querySelector("#map-dynamics-legend").hidden = !isDynamics;
+    document.querySelector("#map-point-legend").hidden = isDynamics;
+    document.querySelector("#map-mode-eyebrow").textContent = isDynamics
+      ? "Comparação entre competências consecutivas"
+      : "Municípios → agregados → estabelecimentos";
+    document.querySelector("#map-title").textContent = isDynamics
+      ? "Dinâmica territorial experimental"
+      : "Distribuição espacial";
+    document.querySelector("#municipality-ranking-eyebrow").textContent = isDynamics
+      ? "Maiores movimentos absolutos"
+      : "Concentração";
+    document.querySelector("#cnae-ranking-eyebrow").textContent = isDynamics
+      ? "Maiores movimentos absolutos"
+      : "Atividade econômica";
+    document.querySelector("#cnae-ranking-title").textContent = isDynamics
+      ? "Variações por CNAE"
+      : "CNAEs principais";
+    document.querySelector("#map-filter-note").textContent = isDynamics
+      ? "Os mesmos filtros são aplicados separadamente às duas competências. O período de abertura fica indisponível para não distorcer a comparação."
+      : "Os filtros atualizam o mapa, os indicadores, os rankings e a tabela municipal com o mesmo recorte. “Ativo” refere-se à situação na competência escolhida.";
+
+    if (!dynamics) return;
+    setDynamicsMetric("previous", dynamics.previous_establishments);
+    setDynamicsMetric("current", dynamics.current_establishments);
+    setDynamicsMetric("change", dynamics.stock_change, signedNumber);
+    setDynamicsMetric(
+      "rate",
+      dynamics.change_percentage,
+      (value) => formattedPercentage(value, { signed: true }),
+    );
+    setDynamicsMetric("openings", dynamics.openings);
+    setDynamicsMetric("closures", dynamics.closures);
+    document.querySelector("#map-dynamics-note").textContent =
+      `Comparação ${competenceLabel(dynamics.from_competence)} → ${competenceLabel(dynamics.to_competence)}. ` +
+      `Saldo de ciclo de vida: ${signedNumber(dynamics.lifecycle_balance)}. ` +
+      `Outros efeitos cadastrais: ${signedNumber(dynamics.other_effects)}.`;
   };
 
   const focusSelectedMunicipality = (data) => {
@@ -109,12 +229,16 @@
       "coverage",
       `${indicators.geographic_coverage.percentage.toLocaleString("pt-BR")}%`,
     );
+    renderModePresentation(data);
+    const isDynamics = Boolean(data.dynamics);
     replaceChildren(
       document.querySelector("#municipality-ranking"),
       rankingRows(
         data.rankings.municipalities,
         (item) => item.name,
-        (item) => item.establishments,
+        (item) => isDynamics ? item.stock_change : item.establishments,
+        isDynamics ? signedNumber : number.format.bind(number),
+        isDynamics,
       ),
     );
     replaceChildren(
@@ -122,12 +246,15 @@
       rankingRows(
         data.rankings.cnaes,
         (item) => item.label,
-        (item) => item.establishments,
+        (item) => isDynamics ? item.stock_change : item.establishments,
+        isDynamics ? signedNumber : number.format.bind(number),
+        isDynamics,
       ),
     );
-    renderMunicipalityTable(data.municipalities.features);
+    renderMunicipalityTable(data);
     if (mapReady) {
       map.getSource("municipalities").setData(data.municipalities);
+      applyMapMode(data);
       if (!focusSelectedMunicipality(data)) loadLocations();
     }
   };
@@ -155,6 +282,16 @@
     heading.textContent = properties.name || (
       properties.kind === "postal_code" ? `CEP ${properties.postal_code}` : "Localização"
     );
+    if (properties.kind === "municipality" && currentData.dynamics) {
+      detail.textContent =
+        `${number.format(properties.previous_establishments)} → ${number.format(properties.establishments)} estabelecimentos ativos ` +
+        `(${signedNumber(properties.stock_change)}; ${formattedPercentage(properties.change_percentage, { signed: true })}).`;
+      const lifecycle = document.createElement("p");
+      lifecycle.textContent =
+        `${number.format(properties.openings)} abertura(s) e ${number.format(properties.closures)} baixa(s) confirmada(s).`;
+      wrapper.append(heading, detail, lifecycle);
+      return wrapper;
+    }
     detail.textContent = `${number.format(properties.total)} estabelecimento(s) de ${number.format(properties.companies)} empresa(s).`;
     wrapper.append(heading, detail);
     if (properties.kind === "location") {
@@ -203,6 +340,14 @@
 
   const loadLocations = async () => {
     if (!mapReady) return;
+    if (currentData.dynamics) {
+      if (locationsRequest) locationsRequest.abort();
+      map.getSource("locations").setData({ type: "FeatureCollection", features: [] });
+      setStatus(
+        `Comparando ${competenceLabel(currentData.dynamics.from_competence)} e ${competenceLabel(currentData.dynamics.to_competence)} por município.`,
+      );
+      return;
+    }
     if (locationsRequest) locationsRequest.abort();
     if (map.getZoom() < 9) {
       map.getSource("locations").setData({ type: "FeatureCollection", features: [] });
@@ -382,6 +527,7 @@
         },
       });
       mapReady = true;
+      applyMapMode(currentData);
       if (!focusSelectedMunicipality(currentData)) loadLocations();
     });
 
@@ -410,7 +556,8 @@
       hoveredMunicipality = null;
     });
     map.on("click", "municipality-fill", (event) => {
-      if (map.getZoom() >= 9 || !event.features.length) return;
+      if (!event.features.length) return;
+      if (!currentData.dynamics && map.getZoom() >= 9) return;
       new window.mapboxgl.Popup()
         .setLngLat(event.lngLat)
         .setDOMContent(locationPopup({
@@ -421,7 +568,7 @@
           },
         }))
         .addTo(map);
-      map.easeTo({ center: event.lngLat, zoom: 9 });
+      if (!currentData.dynamics) map.easeTo({ center: event.lngLat, zoom: 9 });
     });
     map.on("click", "location-circles", (event) => {
       if (!event.features.length) return;
@@ -465,25 +612,80 @@
     });
   };
 
+  const stockFillExpression = [
+    "interpolate", ["linear"], ["get", "establishments"],
+    0, "#edf4ef",
+    1000, "#add6bc",
+    10000, "#4e9d73",
+    100000, "#0b5b3f",
+  ];
+
+  const dynamicsFillExpression = (scale) => [
+    "interpolate", ["linear"], ["get", "stock_change"],
+    -scale, "#a63d40",
+    -scale * 0.25, "#efb7ad",
+    0, "#f2efe7",
+    scale * 0.25, "#a9d7bc",
+    scale, "#0b6b47",
+  ];
+
+  const applyMapMode = (data) => {
+    if (!mapReady) return;
+    const dynamics = data.dynamics;
+    map.setPaintProperty(
+      "municipality-fill",
+      "fill-color",
+      dynamics ? dynamicsFillExpression(Math.max(dynamics.scale_max, 1)) : stockFillExpression,
+    );
+    map.setLayoutProperty(
+      "location-circles",
+      "visibility",
+      dynamics ? "none" : "visible",
+    );
+    if (!dynamics) return;
+    map.getSource("locations").setData({ type: "FeatureCollection", features: [] });
+    setStatus(
+      `Comparando ${competenceLabel(dynamics.from_competence)} e ${competenceLabel(dynamics.to_competence)} por município.`,
+    );
+    document.querySelector('[data-dynamics-scale="negative"]').textContent = signedNumber(
+      -dynamics.scale_max,
+    );
+    document.querySelector('[data-dynamics-scale="positive"]').textContent = signedNumber(
+      dynamics.scale_max,
+    );
+  };
+
+  const syncModeControls = () => {
+    const isDynamics = document.querySelector("#map-analysis-mode").value === "dynamics";
+    const openingPeriod = form.elements.namedItem("opening_period");
+    openingPeriod.disabled = isDynamics;
+    if (isDynamics) openingPeriod.value = "";
+  };
+
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     updateAnalysis();
   });
+  document.querySelector("#map-analysis-mode").addEventListener("change", syncModeControls);
   document.querySelector("#map-clear-filters").addEventListener("click", () => {
     for (const field of form.elements) {
       if (!field.name) continue;
       if (field.name === "competence") {
         field.value = currentData.projection ? initialData.selection.competence : "";
+      } else if (field.name === "analysis_mode") {
+        field.value = "stock";
       } else {
         field.value = "";
       }
     }
+    syncModeControls();
     updateAnalysis();
   });
   document.querySelector("#map-close-details").addEventListener("click", () => {
     document.querySelector("#map-location-details").hidden = true;
   });
 
+  syncModeControls();
   if (initialData) applyBootstrap(initialData);
   initializeMap();
 })();

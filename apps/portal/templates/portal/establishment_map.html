@@ -8,7 +8,7 @@
   <section class="page-heading map-page-heading">
     <span class="eyebrow">Inteligência territorial</span>
     <h1>Mapa analítico regional</h1>
-    <p>Explore a concentração cadastral dos estabelecimentos ativos nos 35 municípios do Triângulo Mineiro. Cada visualização representa uma única competência.</p>
+    <p>Explore a concentração cadastral ou compare a dinâmica dos estabelecimentos ativos nos 35 municípios do Triângulo Mineiro.</p>
   </section>
 
   {% if not projection %}
@@ -37,6 +37,11 @@
           <button class="text-button" id="map-clear-filters" type="button">Limpar filtros</button>
         </div>
         <form id="map-filter-form" class="map-filter-grid">
+          <label>Modo de análise
+            <select name="analysis_mode" id="map-analysis-mode">
+              {% for value, label in analysis_mode_options %}<option value="{{ value }}" {% if initial_payload.selection.analysis_mode == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+          </label>
           <label>Competência
             <select name="competence">
               {% for revision in revision_options %}
@@ -84,18 +89,18 @@
               {% for value, label in precision_options %}<option value="{{ value }}" {% if initial_payload.selection.precision == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
           </label>
-          <label>Abertura do estabelecimento
-            <select name="opening_period">
+          <label id="map-opening-filter">Abertura do estabelecimento
+            <select name="opening_period" {% if initial_payload.selection.analysis_mode == "dynamics" %}disabled{% endif %}>
               <option value="">Qualquer data</option>
               {% for value, label in opening_options %}<option value="{{ value }}" {% if initial_payload.selection.opening_period == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
           </label>
           <button type="submit">Aplicar filtros</button>
         </form>
-        <p class="filter-note">Os filtros atualizam o mapa, os seis indicadores, os rankings e a tabela municipal com o mesmo recorte. “Ativo” refere-se à situação na competência escolhida; o período de abertura também é calculado em relação a ela.</p>
+        <p id="map-filter-note" class="filter-note">Os filtros atualizam o mapa, os indicadores, os rankings e a tabela municipal com o mesmo recorte. “Ativo” refere-se à situação na competência escolhida.</p>
       </section>
 
-      <section id="map-indicators" class="metrics map-metrics" aria-label="Indicadores cartográficos">
+      <section id="map-stock-indicators" class="metrics map-metrics" aria-label="Indicadores cartográficos" {% if initial_payload.dynamics %}hidden{% endif %}>
         <article><span>Estabelecimentos ativos</span><strong data-metric="establishments">{{ initial_payload.indicators.establishments }}</strong></article>
         <article><span>Empresas distintas</span><strong data-metric="companies">{{ initial_payload.indicators.companies }}</strong></article>
         <article><span>Municípios com presença</span><strong data-metric="municipalities">{{ initial_payload.indicators.municipalities }}</strong></article>
@@ -104,21 +109,37 @@
         <article><span>Cobertura geográfica</span><strong data-metric="coverage">{{ initial_payload.indicators.geographic_coverage.percentage }}%</strong></article>
       </section>
 
+      <section id="map-dynamics-indicators" class="metrics map-metrics" aria-label="Indicadores de dinâmica territorial" {% if not initial_payload.dynamics %}hidden{% endif %}>
+        <article><span>Estoque anterior</span><strong data-dynamics-metric="previous">{{ initial_payload.dynamics.previous_establishments }}</strong></article>
+        <article><span>Estoque atual</span><strong data-dynamics-metric="current">{{ initial_payload.dynamics.current_establishments }}</strong></article>
+        <article><span>Variação do estoque</span><strong data-dynamics-metric="change">{{ initial_payload.dynamics.stock_change }}</strong></article>
+        <article><span>Taxa de variação</span><strong data-dynamics-metric="rate">{{ initial_payload.dynamics.change_percentage }}</strong></article>
+        <article><span>Aberturas confirmadas</span><strong data-dynamics-metric="openings">{{ initial_payload.dynamics.openings }}</strong></article>
+        <article><span>Baixas confirmadas</span><strong data-dynamics-metric="closures">{{ initial_payload.dynamics.closures }}</strong></article>
+      </section>
+      <p id="map-dynamics-note" class="map-dynamics-note" {% if not initial_payload.dynamics %}hidden{% endif %}>{% if initial_payload.dynamics %}Comparação {{ initial_payload.dynamics.from_competence }} → {{ initial_payload.dynamics.to_competence }}. Saldo de ciclo de vida: {{ initial_payload.dynamics.lifecycle_balance }}. Outros efeitos cadastrais: {{ initial_payload.dynamics.other_effects }}.{% endif %}</p>
+
       <section class="panel map-panel" aria-labelledby="map-title">
         <div class="section-heading">
           <div>
-            <span class="eyebrow">Municípios → agregados → estabelecimentos</span>
-            <h2 id="map-title">Distribuição espacial</h2>
+            <span id="map-mode-eyebrow" class="eyebrow">{% if initial_payload.dynamics %}Comparação entre competências consecutivas{% else %}Municípios → agregados → estabelecimentos{% endif %}</span>
+            <h2 id="map-title">{% if initial_payload.dynamics %}Dinâmica territorial experimental{% else %}Distribuição espacial{% endif %}</h2>
           </div>
         </div>
         <div class="map-legends" aria-label="Legenda do mapa">
-          <div class="map-legend-group">
+          <div id="map-stock-legend" class="map-legend-group" {% if initial_payload.dynamics %}hidden{% endif %}>
             <strong>Concentração municipal</strong>
             <span class="map-density-scale" aria-hidden="true"></span>
             <span class="map-density-labels"><span>0</span><span>1 mil</span><span>10 mil</span><span>100 mil+</span></span>
             <small>Verde claro indica menos estabelecimentos; verde escuro, maior concentração.</small>
           </div>
-          <div class="map-legend-group map-point-legend">
+          <div id="map-dynamics-legend" class="map-legend-group" {% if not initial_payload.dynamics %}hidden{% endif %}>
+            <strong>Variação do estoque ativo</strong>
+            <span class="map-dynamics-scale" aria-hidden="true"></span>
+            <span class="map-dynamics-labels"><span data-dynamics-scale="negative">−</span><span>0</span><span data-dynamics-scale="positive">+</span></span>
+            <small>Vermelho indica redução; verde, crescimento entre competências consecutivas.</small>
+          </div>
+          <div id="map-point-legend" class="map-legend-group map-point-legend" {% if initial_payload.dynamics %}hidden{% endif %}>
             <strong>Pontos e agrupamentos</strong>
             <span><i class="map-dot map-dot-address"></i> Endereço CNEFE</span>
             <span><i class="map-dot map-dot-postal"></i> Aproximação por CEP</span>
@@ -141,18 +162,20 @@
 
       <div class="two-columns map-rankings">
         <section class="panel">
-          <div class="section-heading"><div><span class="eyebrow">Concentração</span><h2>Municípios</h2></div></div>
+          <div class="section-heading"><div><span id="municipality-ranking-eyebrow" class="eyebrow">{% if initial_payload.dynamics %}Maiores movimentos absolutos{% else %}Concentração{% endif %}</span><h2 id="municipality-ranking-title">Municípios</h2></div></div>
           <ol id="municipality-ranking" class="map-ranking-list">
             {% for item in initial_payload.rankings.municipalities %}
-              <li><span>{{ item.name }}</span><strong>{{ item.establishments }}</strong></li>
+              <li><span>{{ item.name }}</span><strong>{% if initial_payload.dynamics %}{{ item.stock_change }}{% else %}{{ item.establishments }}{% endif %}</strong></li>
+            {% empty %}<li class="map-ranking-empty">Nenhuma variação no recorte.</li>
             {% endfor %}
           </ol>
         </section>
         <section class="panel">
-          <div class="section-heading"><div><span class="eyebrow">Atividade econômica</span><h2>CNAEs principais</h2></div></div>
+          <div class="section-heading"><div><span id="cnae-ranking-eyebrow" class="eyebrow">{% if initial_payload.dynamics %}Maiores movimentos absolutos{% else %}Atividade econômica{% endif %}</span><h2 id="cnae-ranking-title">{% if initial_payload.dynamics %}Variações por CNAE{% else %}CNAEs principais{% endif %}</h2></div></div>
           <ol id="cnae-ranking" class="map-ranking-list">
             {% for item in initial_payload.rankings.cnaes %}
-              <li><span>{{ item.label }}</span><strong>{{ item.establishments }}</strong></li>
+              <li><span>{{ item.label }}</span><strong>{% if initial_payload.dynamics %}{{ item.stock_change }}{% else %}{{ item.establishments }}{% endif %}</strong></li>
+            {% empty %}<li class="map-ranking-empty">Nenhuma variação no recorte.</li>
             {% endfor %}
           </ol>
         </section>
@@ -181,14 +204,29 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Município</th><th>Estabelecimentos</th><th>Empresas</th><th>Cobertura</th></tr></thead>
+            <thead id="map-municipality-head">
+              {% if initial_payload.dynamics %}
+                <tr><th>Município</th><th>Anterior</th><th>Atual</th><th>Variação</th><th>Taxa</th><th>Aberturas</th><th>Baixas</th></tr>
+              {% else %}
+                <tr><th>Município</th><th>Estabelecimentos</th><th>Empresas</th><th>Cobertura</th></tr>
+              {% endif %}
+            </thead>
             <tbody id="map-municipality-body">
               {% for feature in initial_payload.municipalities.features %}
                 <tr>
                   <td>{{ feature.properties.name }}</td>
-                  <td>{{ feature.properties.establishments }}</td>
-                  <td>{{ feature.properties.companies }}</td>
-                  <td>{{ feature.properties.coverage_percentage }}%</td>
+                  {% if initial_payload.dynamics %}
+                    <td>{{ feature.properties.previous_establishments }}</td>
+                    <td>{{ feature.properties.establishments }}</td>
+                    <td>{{ feature.properties.stock_change }}</td>
+                    <td>{{ feature.properties.change_percentage }}</td>
+                    <td>{{ feature.properties.openings }}</td>
+                    <td>{{ feature.properties.closures }}</td>
+                  {% else %}
+                    <td>{{ feature.properties.establishments }}</td>
+                    <td>{{ feature.properties.companies }}</td>
+                    <td>{{ feature.properties.coverage_percentage }}%</td>
+                  {% endif %}
                 </tr>
               {% endfor %}
             </tbody>
@@ -202,6 +240,6 @@
 {% block extra_scripts %}
   {% if projection %}
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.29.0/mapbox-gl.js"></script>
-    <script src="{% static 'portal/establishment-map.js' %}?v=20260907e"></script>
+    <script src="{% static 'portal/establishment-map.js' %}?v=20260907g"></script>
   {% endif %}
 {% endblock %}
