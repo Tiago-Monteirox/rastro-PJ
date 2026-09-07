@@ -80,6 +80,17 @@
     replaceChildren(body, rows);
   };
 
+  const focusSelectedMunicipality = (data) => {
+    if (!mapReady || !data.selection.municipality) return false;
+    const feature = data.municipalities.features.find(
+      (item) => item.properties.ibge_code === data.selection.municipality,
+    );
+    const bbox = feature ? feature.properties.bbox : null;
+    if (!Array.isArray(bbox) || bbox.length !== 4) return false;
+    map.fitBounds(bbox, { padding: 40, maxZoom: 11 });
+    return true;
+  };
+
   const applyBootstrap = (data) => {
     currentData = data;
     const indicators = data.indicators;
@@ -110,14 +121,14 @@
       document.querySelector("#cnae-ranking"),
       rankingRows(
         data.rankings.cnaes,
-        (item) => item.code,
+        (item) => item.label,
         (item) => item.establishments,
       ),
     );
     renderMunicipalityTable(data.municipalities.features);
     if (mapReady) {
       map.getSource("municipalities").setData(data.municipalities);
-      loadLocations();
+      if (!focusSelectedMunicipality(data)) loadLocations();
     }
   };
 
@@ -146,7 +157,48 @@
     );
     detail.textContent = `${number.format(properties.total)} estabelecimento(s) de ${number.format(properties.companies)} empresa(s).`;
     wrapper.append(heading, detail);
+    if (properties.kind === "location") {
+      const companies = document.createElement("div");
+      companies.dataset.popupCompanies = "";
+      companies.className = "map-popup-more";
+      companies.textContent = "Carregando empresas deste ponto…";
+      wrapper.append(companies);
+    }
     return wrapper;
+  };
+
+  const companyDisplayName = (item) => item.trade_name || item.legal_name || "Sem nome informado";
+
+  const appendCompanyIdentity = (container, item) => {
+    const link = document.createElement("a");
+    link.href = item.company_url;
+    link.textContent = companyDisplayName(item);
+    container.append(link);
+    if (item.trade_name && item.legal_name && item.trade_name !== item.legal_name) {
+      const legalName = document.createElement("small");
+      legalName.textContent = item.legal_name;
+      container.append(legalName);
+    }
+  };
+
+  const renderPopupCompanies = (payload, container) => {
+    if (!container) return;
+    const visibleItems = payload.items.slice(0, 5);
+    const list = document.createElement("ul");
+    list.className = "map-popup-company-list";
+    visibleItems.forEach((item) => {
+      const row = document.createElement("li");
+      appendCompanyIdentity(row, item);
+      list.append(row);
+    });
+    const children = [list];
+    if (payload.pagination.total > visibleItems.length) {
+      const remaining = document.createElement("p");
+      remaining.className = "map-popup-more";
+      remaining.textContent = `Mais ${number.format(payload.pagination.total - visibleItems.length)} estabelecimento(s) na lista completa abaixo.`;
+      children.push(remaining);
+    }
+    replaceChildren(container, children);
   };
 
   const loadLocations = async () => {
@@ -191,14 +243,11 @@
     const rows = payload.items.map((item) => {
       const row = document.createElement("tr");
       const companyCell = document.createElement("td");
-      const link = document.createElement("a");
-      link.href = item.company_url;
-      link.textContent = item.trade_name || item.legal_name || "Sem nome informado";
-      companyCell.append(link);
+      appendCompanyIdentity(companyCell, item);
       const values = [
         item.cnpj,
         item.branch_type,
-        item.main_cnae_code || "Não informado",
+        item.main_cnae_label || "Não informado",
         item.cnefe_level ? `${item.precision} · nível ${item.cnefe_level}` : item.precision,
       ];
       row.append(companyCell);
@@ -223,7 +272,6 @@
     }
     replaceChildren(pagination, [summary, controls]);
     panel.hidden = false;
-    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
 
   const detailPageButton = (label, page) => {
@@ -235,7 +283,7 @@
     return button;
   };
 
-  const loadDetails = async (selection, page = 1) => {
+  const loadDetails = async (selection, page = 1, popupContainer = null) => {
     detailsSelection = selection;
     const { coordinate, locationMethod, cnefeLevel } = selection;
     const parameters = formParameters();
@@ -246,9 +294,12 @@
     parameters.set("page", page);
     setStatus("Carregando estabelecimentos do local…");
     try {
-      renderDetails(await fetchJson(app.dataset.detailsUrl, parameters));
+      const payload = await fetchJson(app.dataset.detailsUrl, parameters);
+      renderDetails(payload);
+      renderPopupCompanies(payload, popupContainer);
       setStatus("Detalhes do local carregados.");
     } catch (error) {
+      if (popupContainer) popupContainer.textContent = error.message;
       setStatus(error.message, true);
     }
   };
@@ -331,7 +382,7 @@
         },
       });
       mapReady = true;
-      loadLocations();
+      if (!focusSelectedMunicipality(currentData)) loadLocations();
     });
 
     let hoveredMunicipality = null;
@@ -376,19 +427,30 @@
       if (!event.features.length) return;
       const feature = event.features[0];
       const coordinate = feature.geometry.coordinates.slice();
+      const detailCoordinate = [
+        Number(feature.properties.detail_longitude),
+        Number(feature.properties.detail_latitude),
+      ];
+      const popupContent = locationPopup(feature);
       new window.mapboxgl.Popup()
         .setLngLat(coordinate)
-        .setDOMContent(locationPopup(feature))
+        .setDOMContent(popupContent)
         .addTo(map);
       if (feature.properties.kind === "location") {
         loadDetails({
-          coordinate,
+          coordinate: detailCoordinate,
           locationMethod: feature.properties.location_method,
           cnefeLevel: feature.properties.cnefe_level,
-        });
+        }, 1, popupContent.querySelector("[data-popup-companies]"));
       } else {
         map.easeTo({ center: coordinate, zoom: Math.min(map.getZoom() + 2, 14) });
       }
+    });
+    map.on("mouseenter", "location-circles", () => {
+      map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mouseleave", "location-circles", () => {
+      map.getCanvas().style.cursor = "";
     });
     map.on("moveend", loadLocations);
     map.on("error", (event) => {

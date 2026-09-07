@@ -9,6 +9,7 @@ from apps.cartography.models import (
     AddressResolution,
     CartographicObservation,
     CartographicProjection,
+    CnaeSubclass,
     GeographicSource,
     MunicipalityBoundary,
 )
@@ -80,6 +81,12 @@ class CartographicPortalTests(TestCase):
             located_count=1,
             address_count=1,
         )
+        CnaeSubclass.objects.create(
+            code="4711302",
+            description=(
+                "COMÉRCIO VAREJISTA DE MERCADORIAS EM GERAL, COM PREDOMINÂNCIA DE ALIMENTOS"
+            ),
+        )
         cls.company, cls.establishment = create_company_with_establishment()
         CompanySnapshot.objects.create(
             revision=cls.revision,
@@ -98,6 +105,7 @@ class CartographicPortalTests(TestCase):
             trade_name="Ponto no mapa",
             trade_name_search="PONTO NO MAPA",
             registration_status_code="02",
+            activity_start_date=date(2026, 4, 10),
             main_cnae_code="4711302",
             street_type="AVENIDA",
             street_name="AFONSO PENA",
@@ -139,6 +147,7 @@ class CartographicPortalTests(TestCase):
             cnefe_level=1,
             postal_code="38400130",
             main_cnae_code="4711302",
+            activity_start_date=date(2026, 4, 10),
             branch_type="1",
             company_size_code="01",
             tax_profile=CartographicObservation.TaxProfile.SIMPLES,
@@ -171,6 +180,12 @@ class CartographicPortalTests(TestCase):
         self.assertContains(response, "Alternativa acessível ao mapa")
         self.assertContains(response, "Uberlândia")
         self.assertContains(response, "pk.test-public-token")
+        self.assertContains(response, "Verde claro indica menos estabelecimentos")
+        self.assertContains(response, "Agrupamento por CEP")
+        self.assertContains(
+            response,
+            "4711-3/02 — COMÉRCIO VAREJISTA DE MERCADORIAS EM GERAL",
+        )
 
     @override_settings(MAPBOX_PUBLIC_TOKEN="sk.secret-must-not-reach-browser")
     def test_secret_mapbox_token_is_rejected_and_never_rendered(self):
@@ -180,7 +195,7 @@ class CartographicPortalTests(TestCase):
         self.assertContains(response, "somente tokens públicos")
         self.assertNotContains(response, "sk.secret-must-not-reach-browser")
 
-    def test_bootstrap_uses_one_competence_and_all_seven_filters(self):
+    def test_bootstrap_uses_one_competence_and_all_eight_filters(self):
         response = self.client.get(
             "/mapa/api/resumo/",
             {
@@ -191,6 +206,7 @@ class CartographicPortalTests(TestCase):
                 "company_size": "01",
                 "tax_profile": "SIMPLES",
                 "precision": "ADDRESS",
+                "opening_period": "6",
             },
         )
 
@@ -200,7 +216,49 @@ class CartographicPortalTests(TestCase):
         self.assertEqual(payload["indicators"]["companies"], 1)
         self.assertEqual(payload["indicators"]["geographic_coverage"]["percentage"], 100.0)
         self.assertEqual(payload["selection"]["competence"], "2026-08")
+        self.assertEqual(payload["selection"]["opening_period"], "6")
         self.assertEqual(len(payload["municipalities"]["features"]), 1)
+        self.assertEqual(
+            payload["municipalities"]["features"][0]["properties"]["bbox"],
+            [-48.3, -19.0, -48.1, -18.8],
+        )
+
+    def test_opening_period_is_relative_to_the_selected_competence(self):
+        current_month = self.client.get(
+            "/mapa/api/resumo/",
+            {"competence": "2026-08", "opening_period": "1"},
+        )
+        last_six_months = self.client.get(
+            "/mapa/api/resumo/",
+            {"competence": "2026-08", "opening_period": "6"},
+        )
+
+        self.assertEqual(current_month.json()["indicators"]["establishments"], 0)
+        self.assertEqual(last_six_months.json()["indicators"]["establishments"], 1)
+
+    def test_page_preserves_filters_from_the_url(self):
+        response = self.client.get(
+            "/mapa/",
+            {
+                "competence": "2026-08",
+                "municipality": "3170206",
+                "cnae": "4711302",
+                "opening_period": "6",
+            },
+        )
+
+        self.assertContains(response, 'option value="3170206" selected')
+        self.assertContains(response, 'value="4711302" list="map-cnae-options"')
+        self.assertContains(response, 'option value="6" selected')
+
+    def test_unknown_opening_period_is_rejected(self):
+        response = self.client.get(
+            "/mapa/api/resumo/",
+            {"competence": "2026-08", "opening_period": "24"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Período de abertura inválido", response.json()["error"])
 
     def test_invalid_filter_is_rejected_instead_of_silently_ignored(self):
         response = self.client.get(
@@ -240,6 +298,14 @@ class CartographicPortalTests(TestCase):
         self.assertEqual(
             payload["locations"]["features"][0]["properties"]["location_method"],
             "ADDRESS",
+        )
+        self.assertEqual(
+            payload["locations"]["features"][0]["properties"]["detail_latitude"],
+            -18.9,
+        )
+        self.assertEqual(
+            payload["locations"]["features"][0]["properties"]["detail_longitude"],
+            -48.2,
         )
 
     def test_excess_detail_is_aggregated_without_silent_truncation(self):
@@ -333,6 +399,8 @@ class CartographicPortalTests(TestCase):
         payload = response.json()
         self.assertEqual(payload["pagination"]["total"], 1)
         self.assertEqual(payload["items"][0]["legal_name"], "Empresa Cartográfica Ltda")
+        self.assertEqual(payload["items"][0]["company_url"], "/empresas/12345678/")
+        self.assertIn("COMÉRCIO VAREJISTA", payload["items"][0]["main_cnae_label"])
         self.assertNotIn("cpf", response.content.decode().lower())
         self.assertNotIn("partner", response.content.decode().lower())
 

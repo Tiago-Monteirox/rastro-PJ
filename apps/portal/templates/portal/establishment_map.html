@@ -50,43 +50,49 @@
             <select name="municipality">
               <option value="">Todos os 35 municípios</option>
               {% for ibge_code, name, uf in municipalities %}
-                <option value="{{ ibge_code }}">{{ name }}/{{ uf }}</option>
+                <option value="{{ ibge_code }}" {% if initial_payload.selection.municipality == ibge_code %}selected{% endif %}>{{ name }}/{{ uf }}</option>
               {% endfor %}
             </select>
           </label>
           <label>CNAE principal
-            <input name="cnae" list="map-cnae-options" inputmode="numeric" pattern="[0-9]{7}" placeholder="Todos">
+            <input name="cnae" value="{{ initial_payload.selection.cnae }}" list="map-cnae-options" inputmode="numeric" pattern="[0-9]{7}" placeholder="Código ou atividade">
             <datalist id="map-cnae-options">
-              {% for code in cnae_options %}<option value="{{ code }}"></option>{% endfor %}
+              {% for code, label in cnae_options %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
             </datalist>
           </label>
           <label>Matriz ou filial
             <select name="branch_type">
               <option value="">Todas</option>
-              {% for value, label in branch_options %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+              {% for value, label in branch_options %}<option value="{{ value }}" {% if initial_payload.selection.branch_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
           </label>
           <label>Porte
             <select name="company_size">
               <option value="">Todos</option>
-              {% for value, label in size_options %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+              {% for value, label in size_options %}<option value="{{ value }}" {% if initial_payload.selection.company_size == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
           </label>
           <label>Perfil tributário
             <select name="tax_profile">
               <option value="">Todos</option>
-              {% for value, label in tax_options %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+              {% for value, label in tax_options %}<option value="{{ value }}" {% if initial_payload.selection.tax_profile == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
           </label>
           <label>Precisão espacial
             <select name="precision">
               <option value="">Todas</option>
-              {% for value, label in precision_options %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+              {% for value, label in precision_options %}<option value="{{ value }}" {% if initial_payload.selection.precision == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+          </label>
+          <label>Abertura do estabelecimento
+            <select name="opening_period">
+              <option value="">Qualquer data</option>
+              {% for value, label in opening_options %}<option value="{{ value }}" {% if initial_payload.selection.opening_period == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
           </label>
           <button type="submit">Aplicar filtros</button>
         </form>
-        <p class="filter-note">Os filtros atualizam o mapa, os seis indicadores, os rankings e a tabela municipal com o mesmo recorte. “Ativo” refere-se à situação do estabelecimento na competência escolhida.</p>
+        <p class="filter-note">Os filtros atualizam o mapa, os seis indicadores, os rankings e a tabela municipal com o mesmo recorte. “Ativo” refere-se à situação na competência escolhida; o período de abertura também é calculado em relação a ela.</p>
       </section>
 
       <section id="map-indicators" class="metrics map-metrics" aria-label="Indicadores cartográficos">
@@ -104,7 +110,21 @@
             <span class="eyebrow">Municípios → agregados → estabelecimentos</span>
             <h2 id="map-title">Distribuição espacial</h2>
           </div>
-          <span class="map-precision-legend"><i></i> Endereço CNEFE <i></i> Aproximação por CEP</span>
+        </div>
+        <div class="map-legends" aria-label="Legenda do mapa">
+          <div class="map-legend-group">
+            <strong>Concentração municipal</strong>
+            <span class="map-density-scale" aria-hidden="true"></span>
+            <span class="map-density-labels"><span>0</span><span>1 mil</span><span>10 mil</span><span>100 mil+</span></span>
+            <small>Verde claro indica menos estabelecimentos; verde escuro, maior concentração.</small>
+          </div>
+          <div class="map-legend-group map-point-legend">
+            <strong>Pontos e agrupamentos</strong>
+            <span><i class="map-dot map-dot-address"></i> Endereço CNEFE</span>
+            <span><i class="map-dot map-dot-postal"></i> Aproximação por CEP</span>
+            <span><i class="map-dot map-dot-group"></i> Agrupamento por CEP</span>
+            <small>Quanto maior a bolinha, mais estabelecimentos ela representa.</small>
+          </div>
         </div>
         <p id="map-status" class="map-status" role="status" aria-live="polite">
           {% if mapbox_public_token %}
@@ -132,7 +152,7 @@
           <div class="section-heading"><div><span class="eyebrow">Atividade econômica</span><h2>CNAEs principais</h2></div></div>
           <ol id="cnae-ranking" class="map-ranking-list">
             {% for item in initial_payload.rankings.cnaes %}
-              <li><span>{{ item.code }}</span><strong>{{ item.establishments }}</strong></li>
+              <li><span>{{ item.label }}</span><strong>{{ item.establishments }}</strong></li>
             {% endfor %}
           </ol>
         </section>
@@ -182,6 +202,6 @@
 {% block extra_scripts %}
   {% if projection %}
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.29.0/mapbox-gl.js"></script>
-    <script src="{% static 'portal/establishment-map.js' %}?v=20260907b"></script>
+    <script src="{% static 'portal/establishment-map.js' %}?v=20260907e"></script>
   {% endif %}
 {% endblock %}

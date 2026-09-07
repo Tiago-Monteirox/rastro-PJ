@@ -380,6 +380,7 @@ def _materialize_observations(
             "street_name",
             "street_number",
             "main_cnae_code",
+            "activity_start_date",
             "branch_type",
         )
         expected = snapshots.count()
@@ -412,6 +413,7 @@ def _materialize_observations(
                     cnefe_level=resolution["cnefe_level"],
                     postal_code=postal_code,
                     main_cnae_code=row["main_cnae_code"] or "",
+                    activity_start_date=row["activity_start_date"],
                     branch_type=row["branch_type"],
                     company_size_code=profile.get("company_size_code") or "",
                     tax_profile=_tax_profile(profile),

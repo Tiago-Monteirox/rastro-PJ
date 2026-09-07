@@ -40,6 +40,28 @@ class GeographicSource(models.Model):
         return f"{self.get_kind_display()} {self.version}"
 
 
+class CnaeSubclass(models.Model):
+    code = models.CharField(primary_key=True, max_length=7)
+    description = models.CharField(max_length=255)
+    source = models.CharField(max_length=120, default="IBGE CNAE API v2")
+    synced_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cartography_cnae_subclass"
+        verbose_name = "subclasse CNAE"
+        verbose_name_plural = "subclasses CNAE"
+        ordering = ("code",)
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(code__regex=r"^[0-9]{7}$"),
+                name="cart_cnae_subclass_code_7d",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.code} — {self.description}"
+
+
 class MunicipalityBoundary(models.Model):
     source = models.ForeignKey(
         GeographicSource, on_delete=models.PROTECT, related_name="municipality_boundaries"
@@ -247,6 +269,7 @@ class CartographicObservation(models.Model):
     cnefe_level = models.PositiveSmallIntegerField(null=True, blank=True)
     postal_code = models.CharField(max_length=8, blank=True)
     main_cnae_code = models.CharField(max_length=7, blank=True)
+    activity_start_date = models.DateField(null=True, blank=True)
     branch_type = models.CharField(max_length=2)
     company_size_code = models.CharField(max_length=2, blank=True)
     tax_profile = models.CharField(max_length=12, choices=TaxProfile.choices)
@@ -288,6 +311,10 @@ class CartographicObservation(models.Model):
             models.Index(
                 fields=("projection", "revision", "main_cnae_code"),
                 name="cart_obs_proj_rev_cnae",
+            ),
+            models.Index(
+                fields=("projection", "revision", "activity_start_date"),
+                name="cart_obs_proj_rev_start",
             ),
             models.Index(
                 fields=("projection", "revision", "latitude", "longitude"),

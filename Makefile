@@ -1,4 +1,4 @@
-.PHONY: build up down logs migrate migrations check test lint shell superuser prepare-map
+.PHONY: build up down logs migrate migrations check test lint shell superuser prepare-map sync-cnae
 
 build:
 	docker compose build
@@ -33,6 +33,9 @@ shell:
 
 superuser:
 	docker compose run --rm web python manage.py createsuperuser
+
+sync-cnae:
+	docker compose run --rm web python manage.py sync_cnae_catalog
 
 prepare-map:
 	docker compose run --rm web python manage.py prepare_cartographic_projection \

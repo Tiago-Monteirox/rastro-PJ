@@ -4,9 +4,16 @@ from .models import (
     AddressResolution,
     CartographicObservation,
     CartographicProjection,
+    CnaeSubclass,
     GeographicSource,
     MunicipalityBoundary,
 )
+
+
+@admin.register(CnaeSubclass)
+class CnaeSubclassAdmin(admin.ModelAdmin):
+    list_display = ("code", "description", "source", "synced_at")
+    search_fields = ("code", "description")
 
 
 @admin.register(GeographicSource)
@@ -50,6 +57,7 @@ class CartographicObservationAdmin(admin.ModelAdmin):
         "municipality",
         "location_method",
         "main_cnae_code",
+        "activity_start_date",
     )
     list_filter = ("location_method", "branch_type", "tax_profile")
     search_fields = ("establishment__cnpj", "company__cnpj_basic", "postal_code")

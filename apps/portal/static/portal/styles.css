@@ -182,9 +182,27 @@ details { margin-top: 1rem; }
 .map-panel .map-status { color: #687870; font-size: .86rem; padding-bottom: 1rem; }
 .map-panel .map-status.error { color: #8a2116; margin: 0 1.75rem 1rem; padding: .75rem; }
 .map-canvas { background: #e8efea; height: min(68vh, 680px); min-height: 440px; width: 100%; }
-.map-precision-legend { align-items: center; color: #52635d; display: flex; flex-wrap: wrap; font-size: .75rem; gap: .4rem; }
-.map-precision-legend i { background: #0b6b47; border-radius: 50%; display: inline-block; height: 10px; width: 10px; }
-.map-precision-legend i:nth-of-type(2) { background: #d89818; margin-left: .4rem; }
+.map-legends {
+  border-top: 1px solid #e5ebe7;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(240px, 1fr) minmax(320px, 1.4fr);
+  margin: 1rem 1.75rem 0;
+  padding-top: 1rem;
+}
+.map-legend-group { color: #52635d; display: grid; font-size: .75rem; gap: .45rem; }
+.map-legend-group strong { color: #263c34; font-size: .8rem; }
+.map-density-scale { background: linear-gradient(90deg, #edf4ef 0%, #add6bc 34%, #4e9d73 67%, #0b5b3f 100%); border: 1px solid #cad8cf; border-radius: 999px; height: 12px; }
+.map-density-labels { display: grid; grid-template-columns: repeat(4, 1fr); }
+.map-density-labels span:nth-child(2), .map-density-labels span:nth-child(3) { text-align: center; }
+.map-density-labels span:last-child { text-align: right; }
+.map-point-legend { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.map-point-legend strong, .map-point-legend small { grid-column: 1 / -1; }
+.map-point-legend > span { align-items: center; display: flex; gap: .4rem; }
+.map-dot { border: 1.5px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #afbbb4; display: inline-block; flex: 0 0 auto; height: 12px; width: 12px; }
+.map-dot-address { background: #0b6b47; }
+.map-dot-postal { background: #d89818; }
+.map-dot-group { background: #28547a; }
 .map-ranking-list { display: grid; gap: .7rem; list-style-position: inside; margin: 0; padding: 0; }
 .map-ranking-list li { border-bottom: 1px solid #e5ebe7; display: flex; justify-content: space-between; padding: .7rem 0; }
 .map-ranking-list span { overflow-wrap: anywhere; }
@@ -192,6 +210,10 @@ details { margin-top: 1rem; }
 #map-location-details a { color: #17694e; font-weight: 700; }
 .mapboxgl-popup-content { color: #14213d; line-height: 1.45; }
 .mapboxgl-popup-content p { margin: .35rem 0 0; }
+.map-popup-company-list { display: grid; gap: .35rem; list-style: none; margin: .65rem 0 0; max-width: 320px; padding: 0; }
+.map-popup-company-list a { color: #17694e; font-weight: 700; overflow-wrap: anywhere; }
+.map-popup-company-list small, #map-detail-body small { color: #687870; display: block; margin-top: .1rem; }
+.map-popup-more { color: #52635d; font-size: .75rem; }
 
 @media (max-width: 1040px) {
   .dashboard-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -216,4 +238,6 @@ details { margin-top: 1rem; }
   .watchlist-row button { width: 100%; }
   .map-canvas { height: 62vh; min-height: 380px; }
   .map-panel .section-heading { align-items: start; flex-direction: column; }
+  .map-legends { grid-template-columns: 1fr; }
+  .map-point-legend { grid-template-columns: 1fr; }
 }

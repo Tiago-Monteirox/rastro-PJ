@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import re
+from calendar import monthrange
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.core.paginator import Paginator
@@ -13,6 +15,7 @@ from apps.cartography.models import (
     AddressResolution,
     CartographicObservation,
     CartographicProjection,
+    CnaeSubclass,
     MunicipalityBoundary,
 )
 from apps.pipeline.models import CompetenceRevision
@@ -32,6 +35,12 @@ SIZE_LABELS = {
 }
 PRECISION_LABELS = dict(AddressResolution.Method.choices)
 TAX_LABELS = dict(CartographicObservation.TaxProfile.choices)
+OPENING_PERIODS = {
+    "1": "Na competência selecionada",
+    "3": "Últimos 3 meses",
+    "6": "Últimos 6 meses",
+    "12": "Últimos 12 meses",
+}
 
 
 class MapQueryError(Exception):
@@ -49,6 +58,7 @@ class MapSelection:
     company_size: str = ""
     tax_profile: str = ""
     precision: str = ""
+    opening_period: str = ""
 
     def as_dict(self) -> dict[str, str]:
         return {
@@ -59,6 +69,7 @@ class MapSelection:
             "company_size": self.company_size,
             "tax_profile": self.tax_profile,
             "precision": self.precision,
+            "opening_period": self.opening_period,
         }
 
 
@@ -83,6 +94,7 @@ def map_page_context() -> dict:
             "tax_options": CartographicObservation.TaxProfile.choices,
             "precision_options": AddressResolution.Method.choices,
             "branch_options": (("1", "Matriz"), ("2", "Filial")),
+            "opening_options": OPENING_PERIODS.items(),
         }
 
     revisions = _projection_revisions(projection)
@@ -104,12 +116,16 @@ def map_page_context() -> dict:
         observations = CartographicObservation.objects.filter(
             projection=projection, revision=latest
         )
-        cnae_options = list(
+        cnae_codes = list(
             observations.exclude(main_cnae_code="")
             .order_by("main_cnae_code")
             .values_list("main_cnae_code", flat=True)
             .distinct()
         )
+        cnae_descriptions = _cnae_descriptions(cnae_codes)
+        cnae_options = [
+            (code, _cnae_label(code, cnae_descriptions.get(code, ""))) for code in cnae_codes
+        ]
         size_codes = list(
             observations.exclude(company_size_code="")
             .order_by("company_size_code")
@@ -125,6 +141,7 @@ def map_page_context() -> dict:
         "tax_options": CartographicObservation.TaxProfile.choices,
         "precision_options": AddressResolution.Method.choices,
         "branch_options": (("1", "Matriz"), ("2", "Filial")),
+        "opening_options": OPENING_PERIODS.items(),
     }
 
 
@@ -167,6 +184,9 @@ def parse_selection(filters: Mapping[str, str]) -> MapSelection:
     precision = str(filters.get("precision", "")).strip()
     if precision and precision not in PRECISION_LABELS:
         raise MapQueryError("Precisão espacial inválida.")
+    opening_period = str(filters.get("opening_period", "")).strip()
+    if opening_period and opening_period not in OPENING_PERIODS:
+        raise MapQueryError("Período de abertura inválido.")
 
     return MapSelection(
         projection=projection,
@@ -178,6 +198,7 @@ def parse_selection(filters: Mapping[str, str]) -> MapSelection:
         company_size=company_size,
         tax_profile=tax_profile,
         precision=precision,
+        opening_period=opening_period,
     )
 
 
@@ -216,6 +237,7 @@ def bootstrap_payload(filters: Mapping[str, str]) -> dict:
         .annotate(total=Count("id"), companies=Count("company_id", distinct=True))
         .order_by("-total", "main_cnae_code")[:10]
     )
+    cnae_descriptions = _cnae_descriptions([row["main_cnae_code"] for row in cnae_ranking])
     return {
         "selection": selection.as_dict(),
         "projection": {
@@ -266,6 +288,12 @@ def bootstrap_payload(filters: Mapping[str, str]) -> dict:
             "cnaes": [
                 {
                     "code": row["main_cnae_code"],
+                    "formatted_code": _format_cnae_code(row["main_cnae_code"]),
+                    "description": cnae_descriptions.get(row["main_cnae_code"], ""),
+                    "label": _cnae_label(
+                        row["main_cnae_code"],
+                        cnae_descriptions.get(row["main_cnae_code"], ""),
+                    ),
                     "establishments": row["total"],
                     "companies": row["companies"],
                 }
@@ -379,6 +407,9 @@ def location_details_payload(filters: Mapping[str, str]) -> dict:
             company_id__in=company_ids,
         )
     }
+    cnae_descriptions = _cnae_descriptions(
+        [observation.main_cnae_code for observation in page.object_list]
+    )
     items = []
     for observation in page.object_list:
         establishment_snapshot = establishment_snapshots.get(observation.establishment_id)
@@ -393,6 +424,10 @@ def location_details_payload(filters: Mapping[str, str]) -> dict:
                 "trade_name": trade_name,
                 "municipality": observation.municipality.name,
                 "main_cnae_code": observation.main_cnae_code,
+                "main_cnae_label": _cnae_label(
+                    observation.main_cnae_code,
+                    cnae_descriptions.get(observation.main_cnae_code, ""),
+                ),
                 "branch_type": BRANCH_LABELS.get(observation.branch_type, observation.branch_type),
                 "precision": PRECISION_LABELS.get(
                     observation.location_method, observation.location_method
@@ -435,7 +470,37 @@ def filtered_observations(selection: MapSelection) -> QuerySet:
         queryset = queryset.filter(tax_profile=selection.tax_profile)
     if selection.precision:
         queryset = queryset.filter(location_method=selection.precision)
+    if selection.opening_period:
+        start, end = _opening_date_range(selection)
+        queryset = queryset.filter(activity_start_date__range=(start, end))
     return queryset
+
+
+def _opening_date_range(selection: MapSelection) -> tuple[date, date]:
+    competence = selection.revision.window_competence.competence
+    months = int(selection.opening_period)
+    start_index = competence.year * 12 + competence.month - months
+    start = date(start_index // 12, start_index % 12 + 1, 1)
+    end = date(competence.year, competence.month, monthrange(competence.year, competence.month)[1])
+    return start, end
+
+
+def _cnae_descriptions(codes: list[str]) -> dict[str, str]:
+    clean_codes = {code for code in codes if code}
+    return dict(
+        CnaeSubclass.objects.filter(code__in=clean_codes).values_list("code", "description")
+    )
+
+
+def _format_cnae_code(code: str) -> str:
+    if not CNAE_PATTERN.fullmatch(code):
+        return code
+    return f"{code[:4]}-{code[4]}/{code[5:]}"
+
+
+def _cnae_label(code: str, description: str) -> str:
+    formatted = _format_cnae_code(code)
+    return f"{formatted} — {description}" if description else formatted
 
 
 def _postal_or_municipality_payload(
@@ -550,6 +615,7 @@ def _municipality_feature_collection(
                 "properties": {
                     "ibge_code": boundary.municipality.ibge_code,
                     "name": boundary.municipality.name,
+                    "bbox": boundary.bbox,
                     "establishments": row["total"],
                     "companies": row["companies"],
                     "coverage_percentage": round(coverage, 2),
@@ -574,6 +640,11 @@ def _point_collection(
             if key not in {latitude_key, longitude_key, "municipality_id"}
         }
         properties["kind"] = kind
+        # Mapbox quantizes coordinates exposed by rendered-feature click events.
+        # Preserve the database coordinates as properties so the detail lookup
+        # can use the exact six-decimal identity of the selected location.
+        properties["detail_latitude"] = float(row[latitude_key])
+        properties["detail_longitude"] = float(row[longitude_key])
         features.append(
             {
                 "type": "Feature",
