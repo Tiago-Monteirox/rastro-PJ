@@ -5,7 +5,7 @@
 **Janela de referência:** `2025-08..2026-08`  
 **Ambiente:** Mac local, Docker Compose, Django 5.2 e PostgreSQL
 
-Esta matriz materializa os 34 cenários definidos no documento de validação arquitetural. Ela separa teste automatizado, verificação interna no volume oficial e homologação externa. “Aprovado” nesta tabela significa evidência técnica interna; não significa aceite de Gabriel, Emili ou do professor.
+Esta matriz materializa os 34 cenários definidos no documento de validação arquitetural. Ela separa teste automatizado, verificação interna no volume oficial e homologação externa. “Aprovado” nesta tabela significa evidência técnica interna; não significa aceite de pesquisa e QA, documentação, UI/UX ou do professor.
 
 ## Legenda
 
@@ -76,7 +76,7 @@ Esta matriz materializa os 34 cenários definidos no documento de validação ar
 - privacidade persistente: **zero bloqueio** na auditoria final do PostgreSQL e dos pacotes ativos;
 - desempenho: caminhos originais e recorte regional anual atendem à meta; recorte municipal anual está registrado como parcial;
 - inspeção visual: realizada informalmente pelo Product Owner no frontend provisório; não substitui homologação UX;
-- aprovações de Gabriel, Emili e professor: **pendentes**.
+- aprovações de Gabriel, Emili, do novo integrante de UI/UX e do professor: **pendentes**.
 
 ## Pendências rastreáveis
 
@@ -86,4 +86,4 @@ Esta matriz materializa os 34 cenários definidos no documento de validação ar
 4. Adicionar teste funcional negativo explícito de pesquisa por PF para D2.
 5. Executar a limpeza manual das fontes nacionais temporárias no momento aprovado para D6.
 6. Otimizar as projeções do dashboard para recortes municipais longos e revalidar D5.
-7. Coletar homologação de Gabriel, Emili e professor sem antecipar seus aceites.
+7. Coletar homologação de Gabriel, Emili, do novo integrante de UI/UX e do professor sem antecipar seus aceites.

@@ -2,7 +2,8 @@
 
 **Estado:** implementação local em validação técnica; revisão dos demais stakeholders pendente  
 **Responsável pela validação:** Tiago, Product Owner e Tech Lead  
-**Revisores técnicos e funcionais:** Gabriel, QA Lead; Emili, Scrum Master e UX/UI; professor orientador  
+**Revisores técnicos e funcionais:** Gabriel, pesquisa e QA; Emili, Scrum e documentação; novo integrante, UI/UX e Product Discovery; professor orientador
+
 **Data:** 24 de agosto de 2026  
 **Marco interno:** 30 de setembro de 2026  
 **Entrega oficial:** novembro de 2026, em data a confirmar
@@ -736,7 +737,7 @@ Um erro estrutural bloqueia desde a primeira ocorrência. Alertas localizados pe
 
 **Resposta curta:** “Só chamamos de MVP quando dados reais percorrem todo o fluxo e o resultado está testado e demonstrável.”
 
-- [x] Validado por Tiago, Product Owner, em 24 de agosto de 2026; aceite dos artefatos de Gabriel e Emili ocorrerá durante as sprints.
+- [x] Validado por Tiago, Product Owner, em 24 de agosto de 2026; os aceites de pesquisa e QA, documentação e UI/UX ocorrerão durante as sprints.
 
 ## 7. Riscos, dependências e aprovações abertas
 
@@ -778,7 +779,7 @@ Esses itens são validações técnicas, não autorização para mudar coorte, s
 - Disponibilidade e integridade das 13 competências públicas da Receita.
 - Estabilidade ou versionamento da correspondência oficial TOM–IBGE.
 - Espaço local suficiente para download e extração temporária.
-- Participação de Gabriel na validação de qualidade e de Emili nos fluxos, protótipos e documentos.
+- Participação de Gabriel em pesquisa e QA, de Emili em Scrum e documentação e do novo integrante em discovery, fluxos e protótipos.
 
 ## 8. Impacto na implementação
 
@@ -899,7 +900,8 @@ O aceite de 30 de setembro exige que todos os P0 sejam demonstrados sobre as 13 
 | Semântica e escopo de produto | Tiago, Product Owner | Validado | 26 decisões aprovadas em 23–24/08/2026 |
 | Direção arquitetural | Tiago, Tech Lead | Validado para planejamento | ADRs 0001–0018 aceitos |
 | Qualidade e testabilidade | Gabriel, QA Lead | Pendente | Revisar cenários, limite inicial e matriz de testes |
-| UX/UI e documentação | Emili | Pendente | Revisar fluxos, termos, wireframes e artefatos acadêmicos |
+| Documentação e processo | Emili | Pendente | Revisar atas, termos e artefatos acadêmicos |
+| UI/UX e Product Discovery | Novo integrante | Pendente | Revisar dores, personas, fluxos, wireframes e protótipo |
 | Aderência acadêmica | Professor orientador | Pendente | Confirmar monólito, escopo e entregáveis |
 | Capacidade do ambiente local | Tiago | Validada internamente | 13 competências preparadas/importadas e consultas comuns abaixo de dois segundos; revisão de Gabriel pendente |
 | Publicação externa ou produção | Não solicitada | Fora do escopo | Exigiria nova aprovação técnica, de segurança e privacidade |
@@ -914,7 +916,8 @@ O aceite de 30 de setembro exige que todos os P0 sejam demonstrados sobre as 13 
 - [x] Escopo interno, escopo oficial e exclusões estão separados.
 - [x] `PROJETO.md`, `CONTEXT.md`, ledger e ADRs foram cruzados e atualizados.
 - [ ] Gabriel valida a estratégia e os cenários de QA.
-- [ ] Emili valida linguagem, experiência e documentação.
+- [ ] Emili valida processo e documentação.
+- [ ] O novo integrante valida discovery, linguagem de interface e experiência.
 - [ ] Professor valida aderência acadêmica.
 - [x] A janela oficial confirma as hipóteses de capacidade, qualidade e desempenho no Mac-alvo.
 

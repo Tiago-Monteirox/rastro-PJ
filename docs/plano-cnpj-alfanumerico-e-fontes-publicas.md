@@ -10,6 +10,8 @@
 
 **Scrum e documentação:** Emili
 
+**UI/UX e Product Discovery:** novo integrante, nome a registrar
+
 **Marco interno:** 30 de setembro de 2026
 
 **Entrega acadêmica oficial:** novembro de 2026

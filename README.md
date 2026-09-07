@@ -1,4 +1,4 @@
-# Inteligência Cadastral Regional
+# Rastro PJ
 
 Monólito local em Django 5.2 e PostgreSQL para reconstruir fotografias mensais do CNPJ, detectar mudanças cadastrais e produzir indicadores dos 35 municípios aprovados do Triângulo Mineiro.
 
@@ -17,7 +17,7 @@ A janela oficial `2025-08..2026-08` está preparada e publicada localmente:
 
 As contagens de fotografias são somas das 13 competências, não quantidades de empresas únicas. O portal, a pesquisa, o detalhe, a timeline, os eventos, o dashboard, a watchlist e o acompanhamento de importações estão integrados ao mesmo monólito. O dashboard aceita competência inicial e final, município e CNAE; também apresenta os maiores aumentos de capital social e as maiores ampliações líquidas do quadro societário no recorte.
 
-A suíte atual possui 78 testes e foi aprovada em PostgreSQL. `ruff check`, `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. A homologação de Gabriel, Emili e do professor permanece pendente e não é substituída por essas verificações internas.
+A suíte atual possui 83 testes e foi aprovada em PostgreSQL. `ruff check`, `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. As revisões de pesquisa e QA, documentação, UI/UX e do professor permanecem pendentes e não são substituídas por essas verificações internas.
 
 ## Indicadores e eventos
 

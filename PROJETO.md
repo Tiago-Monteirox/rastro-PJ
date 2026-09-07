@@ -1,6 +1,7 @@
-# Projeto Integrador — Visão do Produto e Escopo Inicial
+# Rastro PJ — Visão do Produto e Escopo
 
-> Documento vivo para consolidar as decisões iniciais do projeto. O nome e a identidade visual serão definidos posteriormente.
+> Documento vivo do projeto integrador. O nome **Rastro PJ** está definido; identidade visual,
+> logo e sistema de design serão desenvolvidos pela equipe.
 >
 > O refinamento do backend foi consolidado em [`docs/backend-cnpj-regional-validacao-arquitetural.md`](docs/backend-cnpj-regional-validacao-arquitetural.md).
 > O plano técnico aprovado está em [`docs/backend-cnpj-regional-plano-implementacao.md`](docs/backend-cnpj-regional-plano-implementacao.md).
@@ -23,11 +24,11 @@ Existem dois marcos de entrega:
 - **30 de setembro de 2026:** meta interna para concluir um MVP utilizável de ponta a ponta;
 - **novembro de 2026:** entrega acadêmica oficial, após um período reservado para testes, correções, melhorias, documentação e preparação da apresentação.
 
-### Estado técnico em 25 de agosto de 2026
+### Estado técnico em 26 de agosto de 2026
 
-A implementação local antecipou o cronograma inicial. A janela oficial de 13 competências está publicada em revisões sanitizadas `r2`, as 12 comparações estão disponíveis, o portal monolítico está integrado e a regressão técnica de 68 testes foi aprovada. As contagens ativas somam 8.509.822 fotografias de empresa, 8.804.270 de estabelecimento, 4.018.362 societárias, 278.301 eventos e 15.751 métricas.
+A implementação local antecipou o cronograma inicial. A janela oficial de 13 competências está publicada em revisões sanitizadas `r2`, as 12 comparações estão disponíveis, o portal monolítico está integrado e a regressão técnica de 83 testes foi aprovada. As contagens ativas somam 8.509.822 fotografias de empresa, 8.804.270 de estabelecimento, 4.018.362 societárias, 278.301 eventos e 15.751 métricas.
 
-Esse estado representa validação técnica interna, não a entrega acadêmica. O dashboard já permite recortes por intervalo, município e CNAE e produz rankings derivados de aumento de capital e ampliação societária. Nome, identidade visual, artefatos de UX e as homologações de Gabriel, Emili e professor continuam pendentes conforme suas responsabilidades.
+Esse estado representa validação técnica interna, não a entrega acadêmica. O dashboard já permite recortes por intervalo, município e CNAE e produz rankings derivados de aumento de capital e ampliação societária. Identidade visual, artefatos de UX e as homologações funcionais, documentais, de experiência e acadêmicas continuam pendentes conforme as responsabilidades da equipe.
 
 ## 2. Problema
 
@@ -717,14 +718,14 @@ Como **Tech Lead e desenvolvedor**:
 - apoiar o frontend e revisar pull requests;
 - remover bloqueios técnicos e garantir a integração do monólito.
 
-### Gabriel — Desenvolvedor full stack e QA Lead
+### Gabriel — QA Lead e responsável por pesquisa e validação
 
-Como **desenvolvedor**, com foco principal no frontend:
+Como **responsável por pesquisa**:
 
-- implementar templates, HTML, CSS e JavaScript;
-- desenvolver pesquisa, detalhes da empresa, timeline, dashboard e watchlist;
-- integrar as telas às views e aos formulários Django;
-- colaborar com backend, autenticação e correções.
+- pesquisar fontes públicas, soluções semelhantes e necessidades dos usuários;
+- avaliar disponibilidade, qualidade, periodicidade e limitações dos dados;
+- apoiar a análise de viabilidade das melhorias propostas;
+- documentar referências, achados, riscos e hipóteses que precisem de validação.
 
 Como **QA Lead**:
 
@@ -736,7 +737,7 @@ Como **QA Lead**:
 
 Gabriel não será o único responsável pela qualidade: cada desenvolvedor testará o próprio trabalho, e Tiago revisará os fluxos críticos para reduzir o conflito entre desenvolver e homologar.
 
-### Emili — Scrum Master, UX/UI e coordenadora de documentação
+### Emili — Scrum Master e coordenadora de documentação
 
 Como **Scrum Master**:
 
@@ -746,14 +747,26 @@ Como **Scrum Master**:
 - cobrar a atualização das tarefas e facilitar a comunicação;
 - conduzir retrospectivas e acompanhar ações de melhoria.
 
-Como **UX/UI e coordenadora de documentação**:
+Como **coordenadora de documentação**:
 
-- apoiar pesquisa com usuários e definição das personas;
-- criar fluxos de navegação, wireframes e protótipo;
-- definir identidade visual, logo e paleta de cores com o grupo;
-- verificar clareza, consistência e acessibilidade das telas;
 - organizar a documentação acadêmica e as evidências produzidas pela equipe;
+- consolidar atas, decisões, requisitos e entregáveis do projeto;
+- manter os documentos coerentes com o quadro do Miro e o estado das tarefas;
 - apoiar o QA no registro dos testes e na validação visual.
+
+### Novo integrante — Designer de Produto (UI/UX) e Product Discovery
+
+Como **responsável por UI/UX e descoberta de produto**:
+
+- conversar com potenciais usuários e aproveitar sua experiência diária com clientes para levantar
+  dores, vocabulário, expectativas e oportunidades;
+- transformar os achados em personas, jornadas, fluxos e hipóteses de melhoria;
+- criar wireframes, protótipos e especificações de comportamento das telas;
+- definir com o grupo identidade visual, logo, paleta, tipografia e componentes reutilizáveis;
+- avaliar usabilidade, clareza, consistência, responsividade e acessibilidade;
+- validar protótipos antes do desenvolvimento e registrar os resultados;
+- propor melhorias ao Product Backlog, mantendo a priorização e o aceite sob responsabilidade do
+  Product Owner.
 
 ### Responsabilidades compartilhadas
 
@@ -763,7 +776,7 @@ Como **UX/UI e coordenadora de documentação**:
 - revisar os critérios de aceite antes do desenvolvimento;
 - apresentar o projeto e conhecer seu fluxo principal.
 
-A distribuição deverá ser validada pelos três integrantes e poderá ser ajustada conforme disponibilidade, aprendizado e carga de trabalho. O objetivo é dar autonomia e entregas concretas a todos, sem concentrar o projeto inteiro em uma única pessoa.
+A distribuição deverá ser validada pelos quatro integrantes e poderá ser ajustada conforme disponibilidade, aprendizado e carga de trabalho. O objetivo é dar autonomia e entregas concretas a todos, sem concentrar o projeto inteiro em uma única pessoa.
 
 ## 21. Processo de trabalho: Scrum adaptado e Miro
 
@@ -930,9 +943,9 @@ O MVP interno somente será declarado concluído quando todos os itens P0 estive
 ## 25. Próximos passos
 
 1. Fechar a matriz de aceite, preservando como pendentes os cenários ainda não exercitados.
-2. Obter a revisão de QA de Gabriel, a revisão de UX/documentação de Emili e a validação acadêmica do professor.
+2. Obter a revisão de pesquisa e QA de Gabriel, a revisão documental de Emili, a revisão de UI/UX do novo integrante e a validação acadêmica do professor.
 3. Criar no Miro os cards remanescentes, com responsáveis, evidências e critérios de aceite.
-4. Definir nome, identidade visual, logo, paleta, personas e protótipo definitivo.
+4. Desenvolver a identidade visual do Rastro PJ, logo, paleta, personas e protótipo definitivo.
 5. Executar a limpeza manual aprovada das fontes nacionais temporárias depois de confirmar retenção e redownload.
 6. Corrigir os defeitos encontrados na homologação sem alterar silenciosamente domínio, privacidade ou janela.
 7. Congelar a candidata acadêmica, consolidar evidências e ensaiar a demonstração de novembro.

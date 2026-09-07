@@ -4,7 +4,8 @@
 **Versão:** 1.0 — aprovada  
 **Data:** 24 de agosto de 2026  
 **Responsável técnico:** Tiago, Tech Lead  
-**Revisores:** Gabriel, QA Lead; Emili, Scrum Master e UX/UI  
+**Revisores:** Gabriel, pesquisa e QA; Emili, Scrum e documentação; novo integrante, UI/UX e Product Discovery
+
 **Marco interno:** 30 de setembro de 2026  
 **Autorização registrada:** Tiago autorizou o início do desenvolvimento local em 24 de agosto de 2026. Publicação externa e envio ao GitHub permanecem fora do escopo desta autorização.
 
@@ -500,6 +501,19 @@ O calendário assume aprovação do plano até 25 de agosto. Aprovação posteri
 
 Downloads e processamento das competências poderão ocupar tempo de máquina em paralelo ao trabalho humano, sempre com execução manual, observável e uma preparação por vez.
 
+### Redistribuição da equipe em 3 de setembro de 2026
+
+Com a entrada de um quarto integrante, os responsáveis registrados em tarefas já concluídas são
+preservados como histórico. Para o trabalho ainda aberto:
+
+- Gabriel concentra pesquisa, validação das fontes, planejamento de testes, regressão e aceite;
+- Emili concentra Scrum, Miro, atas e consolidação da documentação acadêmica;
+- o novo integrante assume Product Discovery, fluxos, wireframes, protótipos, identidade visual,
+  usabilidade e especificações de interface;
+- Tiago permanece como Product Owner, Tech Lead e desenvolvedor full stack;
+- propostas originadas em pesquisa e discovery entram no Product Backlog e são priorizadas pelo
+  Product Owner antes do desenvolvimento.
+
 ## 14. Backlog técnico inicial
 
 Tamanhos: **S** até uma sessão curta; **M** aproximadamente um dia focado; **L** dois ou mais dias e deve ser quebrado durante a sprint. Tamanho não é promessa de horas.
@@ -608,7 +622,7 @@ Tamanhos: **S** até uma sessão curta; **M** aproximadamente um dia focado; **L
 | PI-080 | Implementar cinco comparadores P1 | Tiago | G6 | recálculo sem novo download | L |
 | PI-081 | Implementar autenticação e controle administrativo | Gabriel/Tiago | G6 | CSRF e permissões testados | L |
 | PI-082 | Implementar watchlist | Gabriel | PI-081 | usuário + empresa únicos | M |
-| PI-083 | Ampliar acessibilidade, responsividade e identidade visual | Emili/Gabriel | G6 | checklist visual e acessível aprovado | L |
+| PI-083 | Ampliar acessibilidade, responsividade e identidade visual | UI/UX + equipe | G6 | checklist visual e acessível aprovado | L |
 | PI-084 | Regressão final e documentação acadêmica | equipe | PI-080–083 | entrega oficial pronta | L |
 
 ## 15. Riscos técnicos e respostas
@@ -622,8 +636,8 @@ Tamanhos: **S** até uma sessão curta; **M** aproximadamente um dia focado; **L
 | Quality gate bloqueia alertas legítimos | Baixa | Médio | limite versionado excedido em regra localizada consistente | revisar evidência das 13 competências; o limite geral ficou em 0,1% e `LATE_FIRST_SEEN` foi calibrado em 0,50% no ADR 0018 |
 | Evento duplicado ou falso | Média | Alto | contagem anormal ou cenário de precedência falha | comparadores puros, unicidade no banco e testes de antes/depois/ausência |
 | CPF mascarado vaza em artefato | Baixa | Crítico | scanner ou revisão encontra padrão proibido | interromper, apagar cópias autorizadas com segurança, corrigir pipeline, regenerar e registrar incidente |
-| Tiago vira gargalo do caminho crítico | Alta | Alto | cards L acumulados ou revisão parada | pareamento com Gabriel, documentação de serviços e fatias demonstráveis semanais |
-| Escopo visual compete com backend | Média | Alto | P0 técnico incompleto após 18/09 | congelar P1, manter Emili/Gabriel em fluxo mínimo e proteger caminho crítico |
+| Tiago vira gargalo do caminho crítico | Alta | Alto | cards L acumulados ou revisão parada | documentação de serviços, QA independente e fatias demonstráveis semanais |
+| Escopo visual compete com backend | Média | Alto | melhoria visual entra sem critério de aceite ou prioridade | validar protótipos antes do desenvolvimento e manter priorização com o PO |
 | Fonte pública fica indisponível | Baixa/Média | Alto | download repetidamente falha | preservar hashes e fontes já obtidas, retomar sem corromper e registrar dependência externa |
 
 ## 16. Observabilidade e operação
