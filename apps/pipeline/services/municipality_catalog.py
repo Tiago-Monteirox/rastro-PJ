@@ -101,7 +101,7 @@ def fetch_ibge_catalog(
     if not cache_path.is_file():
         request = urllib.request.Request(
             IBGE_MUNICIPALITIES_URL,
-            headers={"Accept": "application/json", "User-Agent": "projeto-integrador/1.0"},
+            headers={"Accept": "application/json", "User-Agent": "rastro-pj/1.0"},
         )
         try:
             with opener(request, timeout=120) as response:

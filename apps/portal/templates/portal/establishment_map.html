@@ -1,0 +1,187 @@
+{% extends "portal/base.html" %}
+{% load static %}
+{% block title %}Mapa analítico regional · Rastro PJ{% endblock %}
+{% block extra_head %}
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.29.0/mapbox-gl.css" rel="stylesheet">
+{% endblock %}
+{% block content %}
+  <section class="page-heading map-page-heading">
+    <span class="eyebrow">Inteligência territorial</span>
+    <h1>Mapa analítico regional</h1>
+    <p>Explore a concentração cadastral dos estabelecimentos ativos nos 35 municípios do Triângulo Mineiro. Cada visualização representa uma única competência.</p>
+  </section>
+
+  {% if not projection %}
+    <section class="panel map-empty-state">
+      <span class="status">Preparação necessária</span>
+      <h2>A projeção cartográfica ainda não foi publicada.</h2>
+      <p>Prepare as fontes CNEFE e a malha do IBGE antes de abrir o mapa. O restante do Rastro PJ continua disponível normalmente.</p>
+      <code>python manage.py prepare_cartographic_projection &lt;diretório-cnefe&gt; --download-missing-boundaries</code>
+    </section>
+  {% else %}
+    <div
+      id="analytics-map-app"
+      data-bootstrap-url="{% url 'portal:map-bootstrap' %}"
+      data-locations-url="{% url 'portal:map-locations' %}"
+      data-details-url="{% url 'portal:map-location-details' %}"
+      data-mapbox-token="{{ mapbox_public_token }}"
+      data-mapbox-style="{{ mapbox_style_url }}"
+    >
+      {% if page_error %}<p class="error" role="alert">{{ page_error }}</p>{% endif %}
+      <section class="panel map-filter-panel" aria-labelledby="map-filter-title">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Recorte da análise</span>
+            <h2 id="map-filter-title">Filtros cartográficos</h2>
+          </div>
+          <button class="text-button" id="map-clear-filters" type="button">Limpar filtros</button>
+        </div>
+        <form id="map-filter-form" class="map-filter-grid">
+          <label>Competência
+            <select name="competence">
+              {% for revision in revision_options %}
+                {% with value=revision.window_competence.competence|date:"Y-m" %}
+                  <option value="{{ value }}" {% if initial_payload.selection.competence == value %}selected{% endif %}>{{ revision.window_competence.competence|date:"m/Y" }}</option>
+                {% endwith %}
+              {% endfor %}
+            </select>
+          </label>
+          <label>Município
+            <select name="municipality">
+              <option value="">Todos os 35 municípios</option>
+              {% for ibge_code, name, uf in municipalities %}
+                <option value="{{ ibge_code }}">{{ name }}/{{ uf }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>CNAE principal
+            <input name="cnae" list="map-cnae-options" inputmode="numeric" pattern="[0-9]{7}" placeholder="Todos">
+            <datalist id="map-cnae-options">
+              {% for code in cnae_options %}<option value="{{ code }}"></option>{% endfor %}
+            </datalist>
+          </label>
+          <label>Matriz ou filial
+            <select name="branch_type">
+              <option value="">Todas</option>
+              {% for value, label in branch_options %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+          </label>
+          <label>Porte
+            <select name="company_size">
+              <option value="">Todos</option>
+              {% for value, label in size_options %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+          </label>
+          <label>Perfil tributário
+            <select name="tax_profile">
+              <option value="">Todos</option>
+              {% for value, label in tax_options %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+          </label>
+          <label>Precisão espacial
+            <select name="precision">
+              <option value="">Todas</option>
+              {% for value, label in precision_options %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+          </label>
+          <button type="submit">Aplicar filtros</button>
+        </form>
+        <p class="filter-note">Os filtros atualizam o mapa, os seis indicadores, os rankings e a tabela municipal com o mesmo recorte. “Ativo” refere-se à situação do estabelecimento na competência escolhida.</p>
+      </section>
+
+      <section id="map-indicators" class="metrics map-metrics" aria-label="Indicadores cartográficos">
+        <article><span>Estabelecimentos ativos</span><strong data-metric="establishments">{{ initial_payload.indicators.establishments }}</strong></article>
+        <article><span>Empresas distintas</span><strong data-metric="companies">{{ initial_payload.indicators.companies }}</strong></article>
+        <article><span>Municípios com presença</span><strong data-metric="municipalities">{{ initial_payload.indicators.municipalities }}</strong></article>
+        <article><span>Matrizes · filiais</span><strong data-metric="branches">{{ initial_payload.indicators.branches.headquarters }} · {{ initial_payload.indicators.branches.branches }}</strong></article>
+        <article><span>MEI · Simples · demais</span><strong data-metric="tax">{{ initial_payload.indicators.tax_profile.mei }} · {{ initial_payload.indicators.tax_profile.simples }} · {{ initial_payload.indicators.tax_profile.regular }}</strong></article>
+        <article><span>Cobertura geográfica</span><strong data-metric="coverage">{{ initial_payload.indicators.geographic_coverage.percentage }}%</strong></article>
+      </section>
+
+      <section class="panel map-panel" aria-labelledby="map-title">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Municípios → agregados → estabelecimentos</span>
+            <h2 id="map-title">Distribuição espacial</h2>
+          </div>
+          <span class="map-precision-legend"><i></i> Endereço CNEFE <i></i> Aproximação por CEP</span>
+        </div>
+        <p id="map-status" class="map-status" role="status" aria-live="polite">
+          {% if mapbox_public_token %}
+            Preparando o mapa interativo…
+          {% elif mapbox_token_invalid %}
+            A credencial Mapbox foi rejeitada: somente tokens públicos <code>pk.</code> são aceitos. Indicadores, rankings e tabela permanecem disponíveis.
+          {% else %}
+            Token Mapbox não configurado. Indicadores, rankings e tabela permanecem disponíveis.
+          {% endif %}
+        </p>
+        <div id="establishment-map" class="map-canvas" aria-label="Mapa dos estabelecimentos ativos do Triângulo Mineiro"></div>
+        <noscript><p class="error">O mapa interativo requer JavaScript. A tabela municipal abaixo continua disponível.</p></noscript>
+      </section>
+
+      <div class="two-columns map-rankings">
+        <section class="panel">
+          <div class="section-heading"><div><span class="eyebrow">Concentração</span><h2>Municípios</h2></div></div>
+          <ol id="municipality-ranking" class="map-ranking-list">
+            {% for item in initial_payload.rankings.municipalities %}
+              <li><span>{{ item.name }}</span><strong>{{ item.establishments }}</strong></li>
+            {% endfor %}
+          </ol>
+        </section>
+        <section class="panel">
+          <div class="section-heading"><div><span class="eyebrow">Atividade econômica</span><h2>CNAEs principais</h2></div></div>
+          <ol id="cnae-ranking" class="map-ranking-list">
+            {% for item in initial_payload.rankings.cnaes %}
+              <li><span>{{ item.code }}</span><strong>{{ item.establishments }}</strong></li>
+            {% endfor %}
+          </ol>
+        </section>
+      </div>
+
+      <section id="map-location-details" class="panel" hidden>
+        <div class="section-heading">
+          <div><span class="eyebrow">Local selecionado</span><h2>Estabelecimentos</h2></div>
+          <button id="map-close-details" class="text-button" type="button">Fechar</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Empresa</th><th>CNPJ</th><th>Tipo</th><th>CNAE</th><th>Precisão</th></tr></thead>
+            <tbody id="map-detail-body"></tbody>
+          </table>
+        </div>
+        <nav id="map-detail-pagination" class="pagination" aria-label="Paginação dos estabelecimentos"></nav>
+      </section>
+
+      <section class="panel" aria-labelledby="municipality-table-title">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Alternativa acessível ao mapa</span>
+            <h2 id="municipality-table-title">Resumo por município</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Município</th><th>Estabelecimentos</th><th>Empresas</th><th>Cobertura</th></tr></thead>
+            <tbody id="map-municipality-body">
+              {% for feature in initial_payload.municipalities.features %}
+                <tr>
+                  <td>{{ feature.properties.name }}</td>
+                  <td>{{ feature.properties.establishments }}</td>
+                  <td>{{ feature.properties.companies }}</td>
+                  <td>{{ feature.properties.coverage_percentage }}%</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {{ initial_payload|json_script:"map-initial-data" }}
+    </div>
+  {% endif %}
+{% endblock %}
+{% block extra_scripts %}
+  {% if projection %}
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.29.0/mapbox-gl.js"></script>
+    <script src="{% static 'portal/establishment-map.js' %}?v=20260907b"></script>
+  {% endif %}
+{% endblock %}

@@ -1,7 +1,7 @@
 [project]
-name = "inteligencia-cadastral-regional"
+name = "rastro-pj"
 version = "0.1.0"
-description = "Monólito local para inteligência cadastral regional a partir dos dados abertos do CNPJ."
+description = "Monólito local do Rastro PJ para inteligência cadastral regional a partir dos dados abertos do CNPJ."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [

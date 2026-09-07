@@ -2,6 +2,7 @@ import hashlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
@@ -23,6 +24,10 @@ class PortalSmokeTests(TestCase):
         response = self.client.get(reverse("portal:home"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<title>Rastro PJ</title>", html=True)
+        self.assertContains(response, "<strong>Rastro PJ</strong>", html=True)
+        self.assertEqual(admin.site.site_header, "Administração Rastro PJ")
+        self.assertEqual(admin.site.site_title, "Rastro PJ")
         self.assertContains(response, "Aguardando dados")
         self.assertContains(response, "Ainda não importada")
 

@@ -1,4 +1,4 @@
-.PHONY: build up down logs migrate migrations check test lint shell superuser
+.PHONY: build up down logs migrate migrations check test lint shell superuser prepare-map
 
 build:
 	docker compose build
@@ -33,3 +33,8 @@ shell:
 
 superuser:
 	docker compose run --rm web python manage.py createsuperuser
+
+prepare-map:
+	docker compose run --rm web python manage.py prepare_cartographic_projection \
+		/app/var/data/cartography/cnefe-2022 \
+		--download-missing-boundaries

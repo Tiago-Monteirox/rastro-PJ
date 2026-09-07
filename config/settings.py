@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "apps.geography.apps.GeographyConfig",
+    "apps.cartography.apps.CartographyConfig",
     "apps.pipeline.apps.PipelineConfig",
     "apps.registry.apps.RegistryConfig",
     "apps.changes.apps.ChangesConfig",
@@ -104,6 +105,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "var" / "static"
+
+MAPBOX_PUBLIC_TOKEN = os.getenv("MAPBOX_PUBLIC_TOKEN", "")
+MAPBOX_STYLE_URL = os.getenv("MAPBOX_STYLE_URL", "mapbox://styles/mapbox/streets-v12")
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "portal:home"

@@ -1,6 +1,6 @@
 {% extends "portal/base.html" %}
 {% load cnpj %}
-{% block title %}{% if snapshot %}{{ snapshot.legal_name }}{% else %}Empresa {{ company.cnpj_basic|cnpj_basic }}{% endif %}{% endblock %}
+{% block title %}{% if snapshot %}{{ snapshot.legal_name }}{% else %}Empresa {{ company.cnpj_basic|cnpj_basic }}{% endif %} · Rastro PJ{% endblock %}
 {% block content %}
   <section class="page-heading detail-heading">
     <div><span class="eyebrow">CNPJ básico {{ company.cnpj_basic|cnpj_basic }}</span><h1>{% if snapshot %}{{ snapshot.legal_name }}{% else %}Empresa sem fotografia atual{% endif %}</h1></div>

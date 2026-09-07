@@ -1,9 +1,17 @@
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db import connection
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
+from apps.cartography.services.queries import (
+    MapQueryError,
+    bootstrap_payload,
+    location_details_payload,
+    locations_payload,
+    map_page_context,
+)
 from apps.registry.cnpj import parse_cnpj_basic
 from apps.registry.models import Company
 
@@ -83,3 +91,55 @@ def watchlist_toggle(request, cnpj_basic):
     if request.POST.get("return_to") == "watchlist":
         return redirect("portal:watchlist")
     return redirect("portal:company-detail", cnpj_basic=company.cnpj_basic)
+
+
+@login_required
+@require_GET
+def establishment_map(request):
+    context = map_page_context()
+    configured_token = settings.MAPBOX_PUBLIC_TOKEN.strip()
+    public_token = configured_token if configured_token.startswith("pk.") else ""
+    initial_payload = None
+    page_error = ""
+    if context["projection"] is not None:
+        try:
+            initial_payload = bootstrap_payload(request.GET)
+        except MapQueryError as exc:
+            page_error = str(exc)
+            initial_payload = bootstrap_payload({})
+    context.update(
+        {
+            "mapbox_public_token": public_token,
+            "mapbox_token_invalid": bool(configured_token and not public_token),
+            "mapbox_style_url": settings.MAPBOX_STYLE_URL,
+            "initial_payload": initial_payload,
+            "page_error": page_error,
+        }
+    )
+    return render(request, "portal/establishment_map.html", context)
+
+
+@login_required
+@require_GET
+def map_bootstrap(request):
+    return _map_json_response(bootstrap_payload, request.GET)
+
+
+@login_required
+@require_GET
+def map_locations(request):
+    return _map_json_response(locations_payload, request.GET)
+
+
+@login_required
+@require_GET
+def map_location_details(request):
+    return _map_json_response(location_details_payload, request.GET)
+
+
+def _map_json_response(provider, filters):
+    try:
+        return JsonResponse(provider(filters))
+    except MapQueryError as exc:
+        status = 503 if "ainda não foi preparada" in str(exc) else 400
+        return JsonResponse({"error": str(exc)}, status=status)

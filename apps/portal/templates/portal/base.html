@@ -4,21 +4,24 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Inteligência Cadastral Regional{% endblock %}</title>
+    <title>{% block title %}Rastro PJ{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'portal/styles.css' %}?v=20260825c">
+    {% block extra_head %}{% endblock %}
   </head>
   <body>
     <header class="topbar">
       <a class="brand" href="{% url 'portal:home' %}">
-        <span class="eyebrow">Projeto Integrador</span>
-        <strong>Inteligência Cadastral Regional</strong>
+        <strong>Rastro PJ</strong>
       </a>
       <nav aria-label="Navegação principal">
         <a href="{% url 'portal:home' %}">Dashboard</a>
         <a href="{% url 'portal:company-search' %}">Empresas</a>
         <a href="{% url 'portal:event-list' %}">Eventos</a>
         <a href="{% url 'portal:import-list' %}">Importações</a>
-        {% if user.is_authenticated %}<a href="{% url 'portal:watchlist' %}">Monitoradas</a>{% endif %}
+        {% if user.is_authenticated %}
+          <a href="{% url 'portal:establishment-map' %}">Mapa</a>
+          <a href="{% url 'portal:watchlist' %}">Monitoradas</a>
+        {% endif %}
         <a href="{% url 'admin:index' %}">Admin</a>
         {% if user.is_authenticated %}
           <form class="nav-form" action="{% url 'portal:logout' %}" method="post">{% csrf_token %}<button type="submit">Sair</button></form>
@@ -26,5 +29,6 @@
       </nav>
     </header>
     <main>{% block content %}{% endblock %}</main>
+    {% block extra_scripts %}{% endblock %}
   </body>
 </html>

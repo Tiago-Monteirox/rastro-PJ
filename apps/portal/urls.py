@@ -12,6 +12,14 @@ urlpatterns = [
     path("eventos/", views.event_list, name="event-list"),
     path("importacoes/", views.import_list, name="import-list"),
     path("monitoradas/", views.watchlist_list, name="watchlist"),
+    path("mapa/", views.establishment_map, name="establishment-map"),
+    path("mapa/api/resumo/", views.map_bootstrap, name="map-bootstrap"),
+    path("mapa/api/localizacoes/", views.map_locations, name="map-locations"),
+    path(
+        "mapa/api/estabelecimentos/",
+        views.map_location_details,
+        name="map-location-details",
+    ),
     path(
         "monitoradas/<str:cnpj_basic>/",
         views.watchlist_toggle,

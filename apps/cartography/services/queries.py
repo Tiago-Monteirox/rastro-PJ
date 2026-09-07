@@ -1,0 +1,648 @@
+from __future__ import annotations
+
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
+
+from django.core.paginator import Paginator
+from django.db.models import Count, Min, Q, QuerySet
+from django.urls import reverse
+
+from apps.cartography.models import (
+    AddressResolution,
+    CartographicObservation,
+    CartographicProjection,
+    MunicipalityBoundary,
+)
+from apps.pipeline.models import CompetenceRevision
+from apps.registry.models import CompanySnapshot, EstablishmentSnapshot
+
+COMPETENCE_PATTERN = re.compile(r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+CNAE_PATTERN = re.compile(r"^[0-9]{7}$")
+IBGE_PATTERN = re.compile(r"^[0-9]{7}$")
+DETAIL_LIMIT = 5_000
+DETAIL_PAGE_SIZE = 25
+BRANCH_LABELS = {"1": "Matriz", "2": "Filial"}
+SIZE_LABELS = {
+    "00": "Não informado",
+    "01": "Microempresa",
+    "03": "Empresa de pequeno porte",
+    "05": "Demais",
+}
+PRECISION_LABELS = dict(AddressResolution.Method.choices)
+TAX_LABELS = dict(CartographicObservation.TaxProfile.choices)
+
+
+class MapQueryError(Exception):
+    pass
+
+
+@dataclass(frozen=True)
+class MapSelection:
+    projection: CartographicProjection
+    revision: CompetenceRevision
+    competence: str
+    municipality: str = ""
+    cnae: str = ""
+    branch_type: str = ""
+    company_size: str = ""
+    tax_profile: str = ""
+    precision: str = ""
+
+    def as_dict(self) -> dict[str, str]:
+        return {
+            "competence": self.competence,
+            "municipality": self.municipality,
+            "cnae": self.cnae,
+            "branch_type": self.branch_type,
+            "company_size": self.company_size,
+            "tax_profile": self.tax_profile,
+            "precision": self.precision,
+        }
+
+
+def published_projection() -> CartographicProjection | None:
+    return (
+        CartographicProjection.objects.filter(status=CartographicProjection.Status.PUBLISHED)
+        .select_related("historical_window", "boundary_source", "cnefe_source")
+        .order_by("-published_at")
+        .first()
+    )
+
+
+def map_page_context() -> dict:
+    projection = published_projection()
+    if projection is None:
+        return {
+            "projection": None,
+            "revision_options": [],
+            "municipalities": [],
+            "cnae_options": [],
+            "size_options": [],
+            "tax_options": CartographicObservation.TaxProfile.choices,
+            "precision_options": AddressResolution.Method.choices,
+            "branch_options": (("1", "Matriz"), ("2", "Filial")),
+        }
+
+    revisions = _projection_revisions(projection)
+    latest = revisions[-1] if revisions else None
+    municipalities = list(
+        projection.historical_window.geographic_scope.scope_municipalities.select_related(
+            "municipality"
+        )
+        .order_by("municipality__name")
+        .values_list(
+            "municipality__ibge_code",
+            "municipality__name",
+            "municipality__uf",
+        )
+    )
+    cnae_options = []
+    size_codes = []
+    if latest:
+        observations = CartographicObservation.objects.filter(
+            projection=projection, revision=latest
+        )
+        cnae_options = list(
+            observations.exclude(main_cnae_code="")
+            .order_by("main_cnae_code")
+            .values_list("main_cnae_code", flat=True)
+            .distinct()
+        )
+        size_codes = list(
+            observations.exclude(company_size_code="")
+            .order_by("company_size_code")
+            .values_list("company_size_code", flat=True)
+            .distinct()
+        )
+    return {
+        "projection": projection,
+        "revision_options": revisions,
+        "municipalities": municipalities,
+        "cnae_options": cnae_options,
+        "size_options": [(code, SIZE_LABELS.get(code, code)) for code in size_codes],
+        "tax_options": CartographicObservation.TaxProfile.choices,
+        "precision_options": AddressResolution.Method.choices,
+        "branch_options": (("1", "Matriz"), ("2", "Filial")),
+    }
+
+
+def parse_selection(filters: Mapping[str, str]) -> MapSelection:
+    projection = published_projection()
+    if projection is None:
+        raise MapQueryError("A projeção cartográfica ainda não foi preparada.")
+    revisions = _projection_revisions(projection)
+    if not revisions:
+        raise MapQueryError("A projeção publicada não possui competências consultáveis.")
+    by_competence = {
+        revision.window_competence.competence.strftime("%Y-%m"): revision for revision in revisions
+    }
+    competence = str(filters.get("competence", "")).strip() or next(reversed(by_competence))
+    if not COMPETENCE_PATTERN.fullmatch(competence) or competence not in by_competence:
+        raise MapQueryError("Competência inválida ou fora da projeção publicada.")
+
+    municipality = str(filters.get("municipality", "")).strip()
+    memberships = projection.historical_window.geographic_scope.scope_municipalities.select_related(
+        "municipality"
+    )
+    allowed_municipalities = {membership.municipality.ibge_code for membership in memberships}
+    if municipality and (
+        not IBGE_PATTERN.fullmatch(municipality) or municipality not in allowed_municipalities
+    ):
+        raise MapQueryError("Município inválido ou fora do recorte cartográfico.")
+
+    cnae = str(filters.get("cnae", "")).strip()
+    if cnae and not CNAE_PATTERN.fullmatch(cnae):
+        raise MapQueryError("CNAE principal deve possuir sete dígitos.")
+    branch_type = str(filters.get("branch_type", "")).strip()
+    if branch_type and branch_type not in BRANCH_LABELS:
+        raise MapQueryError("Tipo de estabelecimento inválido.")
+    company_size = str(filters.get("company_size", "")).strip()
+    if company_size and company_size not in SIZE_LABELS:
+        raise MapQueryError("Porte empresarial inválido.")
+    tax_profile = str(filters.get("tax_profile", "")).strip()
+    if tax_profile and tax_profile not in TAX_LABELS:
+        raise MapQueryError("Perfil tributário inválido.")
+    precision = str(filters.get("precision", "")).strip()
+    if precision and precision not in PRECISION_LABELS:
+        raise MapQueryError("Precisão espacial inválida.")
+
+    return MapSelection(
+        projection=projection,
+        revision=by_competence[competence],
+        competence=competence,
+        municipality=municipality,
+        cnae=cnae,
+        branch_type=branch_type,
+        company_size=company_size,
+        tax_profile=tax_profile,
+        precision=precision,
+    )
+
+
+def bootstrap_payload(filters: Mapping[str, str]) -> dict:
+    selection = parse_selection(filters)
+    observations = filtered_observations(selection)
+    totals = observations.aggregate(
+        establishments=Count("id"),
+        companies=Count("company_id", distinct=True),
+        municipalities=Count("municipality_id", distinct=True),
+        headquarters=Count("id", filter=Q(branch_type="1")),
+        branches=Count("id", filter=Q(branch_type="2")),
+        address=Count("id", filter=Q(location_method=AddressResolution.Method.ADDRESS)),
+        postal_code=Count("id", filter=Q(location_method=AddressResolution.Method.POSTAL_CODE)),
+        unlocated=Count("id", filter=Q(location_method=AddressResolution.Method.UNLOCATED)),
+        mei=Count("id", filter=Q(tax_profile=CartographicObservation.TaxProfile.MEI)),
+        simples=Count("id", filter=Q(tax_profile=CartographicObservation.TaxProfile.SIMPLES)),
+        regular=Count("id", filter=Q(tax_profile=CartographicObservation.TaxProfile.REGULAR)),
+        unknown=Count("id", filter=Q(tax_profile=CartographicObservation.TaxProfile.UNKNOWN)),
+    )
+    located = totals["address"] + totals["postal_code"]
+    coverage = located / totals["establishments"] if totals["establishments"] else 0.0
+    municipality_rows = list(
+        observations.values("municipality_id", "municipality__ibge_code", "municipality__name")
+        .annotate(
+            total=Count("id"),
+            companies=Count("company_id", distinct=True),
+            located=Count("id", filter=~Q(location_method=AddressResolution.Method.UNLOCATED)),
+        )
+        .order_by("-total", "municipality__name")
+    )
+    municipality_counts = {row["municipality_id"]: row for row in municipality_rows}
+    cnae_ranking = list(
+        observations.exclude(main_cnae_code="")
+        .values("main_cnae_code")
+        .annotate(total=Count("id"), companies=Count("company_id", distinct=True))
+        .order_by("-total", "main_cnae_code")[:10]
+    )
+    return {
+        "selection": selection.as_dict(),
+        "projection": {
+            "id": str(selection.projection.pk),
+            "published_at": (
+                selection.projection.published_at.isoformat()
+                if selection.projection.published_at
+                else None
+            ),
+            "algorithm_version": selection.projection.algorithm_version,
+        },
+        "indicators": {
+            "establishments": totals["establishments"],
+            "companies": totals["companies"],
+            "municipalities": totals["municipalities"],
+            "branches": {
+                "headquarters": totals["headquarters"],
+                "branches": totals["branches"],
+            },
+            "tax_profile": {
+                "mei": totals["mei"],
+                "simples": totals["simples"],
+                "regular": totals["regular"],
+                "unknown": totals["unknown"],
+            },
+            "geographic_coverage": {
+                "located": located,
+                "address": totals["address"],
+                "postal_code": totals["postal_code"],
+                "unlocated": totals["unlocated"],
+                "percentage": round(coverage * 100, 2),
+            },
+        },
+        "rankings": {
+            "municipalities": [
+                {
+                    "ibge_code": row["municipality__ibge_code"],
+                    "name": row["municipality__name"],
+                    "establishments": row["total"],
+                    "companies": row["companies"],
+                    "coverage_percentage": round(
+                        (row["located"] / row["total"] * 100) if row["total"] else 0,
+                        2,
+                    ),
+                }
+                for row in municipality_rows[:10]
+            ],
+            "cnaes": [
+                {
+                    "code": row["main_cnae_code"],
+                    "establishments": row["total"],
+                    "companies": row["companies"],
+                }
+                for row in cnae_ranking
+            ],
+        },
+        "municipalities": _municipality_feature_collection(selection, municipality_counts),
+    }
+
+
+def locations_payload(filters: Mapping[str, str]) -> dict:
+    selection = parse_selection(filters)
+    west, south, east, north = _parse_bounds(filters)
+    zoom = _parse_float(filters.get("zoom"), "Zoom", minimum=0, maximum=24)
+    observations = filtered_observations(selection).filter(
+        latitude__isnull=False,
+        longitude__isnull=False,
+        longitude__gte=west,
+        longitude__lte=east,
+        latitude__gte=south,
+        latitude__lte=north,
+    )
+
+    if zoom < 9:
+        return {
+            "selection": selection.as_dict(),
+            "level": "municipality",
+            "requested_level": "municipality",
+            "aggregation_reason": "",
+            "locations": _municipality_points(selection, observations),
+        }
+    if zoom < 12:
+        return _postal_or_municipality_payload(
+            selection, observations, requested_level="postal_code"
+        )
+
+    exact_rows = _limited_rows(
+        observations.values("latitude", "longitude", "location_method", "cnefe_level")
+        .annotate(total=Count("id"), companies=Count("company_id", distinct=True))
+        .order_by("-total", "latitude", "longitude"),
+        DETAIL_LIMIT,
+    )
+    if exact_rows is not None:
+        return {
+            "selection": selection.as_dict(),
+            "level": "location",
+            "requested_level": "location",
+            "aggregation_reason": "",
+            "locations": _point_collection(
+                exact_rows,
+                kind="location",
+                latitude_key="latitude",
+                longitude_key="longitude",
+            ),
+        }
+    return _postal_or_municipality_payload(
+        selection,
+        observations,
+        requested_level="location",
+        reason="Mais de 5.000 localizações; agregação ampliada para preservar o conjunto completo.",
+    )
+
+
+def location_details_payload(filters: Mapping[str, str]) -> dict:
+    selection = parse_selection(filters)
+    latitude = _parse_decimal(filters.get("latitude"), "Latitude", -90, 90)
+    longitude = _parse_decimal(filters.get("longitude"), "Longitude", -180, 180)
+    location_method = str(filters.get("location_method", "")).strip()
+    if location_method and location_method not in PRECISION_LABELS:
+        raise MapQueryError("Método de localização inválido.")
+    cnefe_level_text = str(filters.get("cnefe_level", "")).strip()
+    cnefe_level = None
+    if cnefe_level_text:
+        try:
+            cnefe_level = int(cnefe_level_text)
+        except ValueError as exc:
+            raise MapQueryError("Nível CNEFE inválido.") from exc
+        if not 1 <= cnefe_level <= 6:
+            raise MapQueryError("Nível CNEFE inválido.")
+    try:
+        page_number = max(1, int(str(filters.get("page", "1"))))
+    except ValueError as exc:
+        raise MapQueryError("Página inválida.") from exc
+
+    observations = filtered_observations(selection).filter(
+        latitude=latitude,
+        longitude=longitude,
+    )
+    if location_method:
+        observations = observations.filter(location_method=location_method)
+    if cnefe_level is not None:
+        observations = observations.filter(cnefe_level=cnefe_level)
+    observations = observations.select_related("establishment", "company", "municipality").order_by(
+        "establishment__cnpj"
+    )
+    paginator = Paginator(observations, DETAIL_PAGE_SIZE)
+    page = paginator.get_page(page_number)
+    establishment_ids = [item.establishment_id for item in page.object_list]
+    company_ids = [item.company_id for item in page.object_list]
+    establishment_snapshots = {
+        item.establishment_id: item
+        for item in EstablishmentSnapshot.objects.filter(
+            revision=selection.revision,
+            establishment_id__in=establishment_ids,
+        )
+    }
+    company_snapshots = {
+        item.company_id: item
+        for item in CompanySnapshot.objects.filter(
+            revision=selection.revision,
+            company_id__in=company_ids,
+        )
+    }
+    items = []
+    for observation in page.object_list:
+        establishment_snapshot = establishment_snapshots.get(observation.establishment_id)
+        company_snapshot = company_snapshots.get(observation.company_id)
+        legal_name = company_snapshot.legal_name if company_snapshot else ""
+        trade_name = establishment_snapshot.trade_name if establishment_snapshot else ""
+        items.append(
+            {
+                "cnpj": observation.establishment.cnpj,
+                "cnpj_basic": observation.company.cnpj_basic,
+                "legal_name": legal_name,
+                "trade_name": trade_name,
+                "municipality": observation.municipality.name,
+                "main_cnae_code": observation.main_cnae_code,
+                "branch_type": BRANCH_LABELS.get(observation.branch_type, observation.branch_type),
+                "precision": PRECISION_LABELS.get(
+                    observation.location_method, observation.location_method
+                ),
+                "cnefe_level": observation.cnefe_level,
+                "company_url": reverse(
+                    "portal:company-detail",
+                    kwargs={"cnpj_basic": observation.company.cnpj_basic},
+                ),
+            }
+        )
+    return {
+        "selection": selection.as_dict(),
+        "coordinate": {"latitude": float(latitude), "longitude": float(longitude)},
+        "items": items,
+        "pagination": {
+            "page": page.number,
+            "pages": paginator.num_pages,
+            "total": paginator.count,
+            "has_previous": page.has_previous(),
+            "has_next": page.has_next(),
+        },
+    }
+
+
+def filtered_observations(selection: MapSelection) -> QuerySet:
+    queryset = CartographicObservation.objects.filter(
+        projection=selection.projection,
+        revision=selection.revision,
+    )
+    if selection.municipality:
+        queryset = queryset.filter(municipality__ibge_code=selection.municipality)
+    if selection.cnae:
+        queryset = queryset.filter(main_cnae_code=selection.cnae)
+    if selection.branch_type:
+        queryset = queryset.filter(branch_type=selection.branch_type)
+    if selection.company_size:
+        queryset = queryset.filter(company_size_code=selection.company_size)
+    if selection.tax_profile:
+        queryset = queryset.filter(tax_profile=selection.tax_profile)
+    if selection.precision:
+        queryset = queryset.filter(location_method=selection.precision)
+    return queryset
+
+
+def _postal_or_municipality_payload(
+    selection: MapSelection,
+    observations: QuerySet,
+    *,
+    requested_level: str,
+    reason: str = "",
+) -> dict:
+    postal_rows = _limited_rows(
+        observations.exclude(postal_code="")
+        .values("municipality_id", "postal_code")
+        .annotate(
+            representative_resolution_id=Min("address_resolution_id"),
+            total=Count("id"),
+            companies=Count("company_id", distinct=True),
+        )
+        .order_by("-total", "postal_code"),
+        DETAIL_LIMIT,
+    )
+    if postal_rows is not None:
+        _attach_resolution_coordinates(postal_rows)
+        fallback_reason = reason
+        if requested_level == "postal_code":
+            fallback_reason = ""
+        return {
+            "selection": selection.as_dict(),
+            "level": "postal_code",
+            "requested_level": requested_level,
+            "aggregation_reason": fallback_reason,
+            "locations": _point_collection(
+                postal_rows,
+                kind="postal_code",
+                latitude_key="latitude",
+                longitude_key="longitude",
+            ),
+        }
+    return {
+        "selection": selection.as_dict(),
+        "level": "municipality",
+        "requested_level": requested_level,
+        "aggregation_reason": (
+            "Mais de 5.000 agregados por CEP; agregação ampliada para municípios."
+        ),
+        "locations": _municipality_points(selection, observations),
+    }
+
+
+def _attach_resolution_coordinates(rows: list[dict]) -> None:
+    resolutions = AddressResolution.objects.in_bulk(
+        row["representative_resolution_id"] for row in rows
+    )
+    for row in rows:
+        resolution = resolutions[row.pop("representative_resolution_id")]
+        row["latitude"] = resolution.latitude
+        row["longitude"] = resolution.longitude
+
+
+def _municipality_points(selection: MapSelection, observations: QuerySet) -> dict:
+    counts = {
+        row["municipality_id"]: row
+        for row in observations.values("municipality_id")
+        .annotate(total=Count("id"), companies=Count("company_id", distinct=True))
+        .order_by()
+    }
+    features = []
+    for boundary in MunicipalityBoundary.objects.filter(
+        source=selection.projection.boundary_source,
+        municipality_id__in=counts,
+    ).select_related("municipality"):
+        row = counts[boundary.municipality_id]
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                        float(boundary.center_longitude),
+                        float(boundary.center_latitude),
+                    ],
+                },
+                "properties": {
+                    "kind": "municipality",
+                    "ibge_code": boundary.municipality.ibge_code,
+                    "name": boundary.municipality.name,
+                    "total": row["total"],
+                    "companies": row["companies"],
+                },
+            }
+        )
+    return {"type": "FeatureCollection", "features": features}
+
+
+def _municipality_feature_collection(
+    selection: MapSelection, municipality_counts: dict[int, dict]
+) -> dict:
+    features = []
+    boundaries = MunicipalityBoundary.objects.filter(
+        source=selection.projection.boundary_source
+    ).select_related("municipality")
+    for boundary in boundaries:
+        row = municipality_counts.get(
+            boundary.municipality_id,
+            {"total": 0, "companies": 0, "located": 0},
+        )
+        coverage = row["located"] / row["total"] * 100 if row["total"] else 0
+        features.append(
+            {
+                "type": "Feature",
+                "id": boundary.municipality.ibge_code,
+                "geometry": boundary.geometry,
+                "properties": {
+                    "ibge_code": boundary.municipality.ibge_code,
+                    "name": boundary.municipality.name,
+                    "establishments": row["total"],
+                    "companies": row["companies"],
+                    "coverage_percentage": round(coverage, 2),
+                },
+            }
+        )
+    return {"type": "FeatureCollection", "features": features}
+
+
+def _point_collection(
+    rows: list[dict],
+    *,
+    kind: str,
+    latitude_key: str,
+    longitude_key: str,
+) -> dict:
+    features = []
+    for row in rows:
+        properties = {
+            key: value
+            for key, value in row.items()
+            if key not in {latitude_key, longitude_key, "municipality_id"}
+        }
+        properties["kind"] = kind
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [
+                        float(row[longitude_key]),
+                        float(row[latitude_key]),
+                    ],
+                },
+                "properties": properties,
+            }
+        )
+    return {"type": "FeatureCollection", "features": features}
+
+
+def _projection_revisions(
+    projection: CartographicProjection,
+) -> list[CompetenceRevision]:
+    return list(
+        CompetenceRevision.objects.filter(
+            window_competence__historical_window=projection.historical_window,
+            status__in=CompetenceRevision.ACTIVE_STATUSES,
+        )
+        .select_related("window_competence")
+        .order_by("window_competence__competence")
+    )
+
+
+def _parse_bounds(filters: Mapping[str, str]) -> tuple[float, float, float, float]:
+    west = _parse_float(filters.get("west"), "Limite oeste", -180, 180)
+    south = _parse_float(filters.get("south"), "Limite sul", -90, 90)
+    east = _parse_float(filters.get("east"), "Limite leste", -180, 180)
+    north = _parse_float(filters.get("north"), "Limite norte", -90, 90)
+    if west >= east or south >= north:
+        raise MapQueryError("A caixa visível possui limites invertidos ou vazios.")
+    return west, south, east, north
+
+
+def _parse_float(
+    value: object,
+    label: str,
+    minimum: float,
+    maximum: float,
+) -> float:
+    try:
+        parsed = float(str(value))
+    except (TypeError, ValueError) as exc:
+        raise MapQueryError(f"{label} inválido.") from exc
+    if not minimum <= parsed <= maximum:
+        raise MapQueryError(f"{label} fora do intervalo permitido.")
+    return parsed
+
+
+def _parse_decimal(
+    value: object,
+    label: str,
+    minimum: int,
+    maximum: int,
+) -> Decimal:
+    try:
+        parsed = Decimal(str(value)).quantize(Decimal("0.000001"))
+    except (InvalidOperation, TypeError) as exc:
+        raise MapQueryError(f"{label} inválida.") from exc
+    if not minimum <= parsed <= maximum:
+        raise MapQueryError(f"{label} fora do intervalo permitido.")
+    return parsed
+
+
+def _limited_rows(queryset: QuerySet, limit: int) -> list[dict] | None:
+    rows = list(queryset[: limit + 1])
+    return rows if len(rows) <= limit else None
