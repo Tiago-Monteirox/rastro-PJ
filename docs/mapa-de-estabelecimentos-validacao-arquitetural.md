@@ -83,9 +83,9 @@ Adicionar ao monólito do Rastro PJ uma visualização geográfica capaz de reve
 
 ### D8 — Filtros da POC
 
-**Decisão:** oferecer competência, município, CNAE principal, matriz/filial, porte, perfil tributário e precisão espacial.
+**Decisão:** oferecer competência, município, CNAE principal, matriz/filial, porte, perfil tributário, precisão espacial e período de abertura do estabelecimento.
 
-**Consequências:** filtros serão combináveis e atualizarão visualização e indicadores. Bairro, capital social, sociedade, eventos, fontes de risco e pesquisa textual no mapa ficam fora da POC. Pesquisa por nome ou CNPJ permanece no fluxo empresarial existente.
+**Consequências:** os oito filtros serão combináveis e atualizarão visualização e indicadores. O período de abertura será calculado em relação à competência escolhida, nos recortes de 1, 3, 6 ou 12 meses. Bairro, capital social, sociedade, eventos, fontes de risco e pesquisa textual no mapa ficam fora da POC. Pesquisa por nome ou CNPJ permanece no fluxo empresarial existente.
 
 ### D9 — Hierarquia visual
 
@@ -182,7 +182,7 @@ O Mapbox GL JS v3 exige token válido para instanciar `Map` e contabiliza um map
 - Mapbox GL JS como renderizador, dentro da faixa gratuita;
 - cascata de correspondência por endereço, CEP e não localizado;
 - mesma precisão para MEI e não MEI;
-- sete filtros e seis indicadores aprovados;
+- oito filtros e seis indicadores aprovados;
 - visão progressiva por município, agregação e estabelecimento;
 - preparação integral, manual, idempotente, retomável e auditável;
 - projeção derivada publicada atomicamente;
@@ -288,7 +288,7 @@ Ao selecionar outra competência, elegibilidade, endereço, localização, indic
 ### Funcional e dados
 
 - os 35 municípios e as 13 competências são navegáveis;
-- os sete filtros são combináveis e coerentes entre mapa e indicadores;
+- os oito filtros são combináveis e coerentes entre mapa e indicadores;
 - os seis indicadores e rankings conferem com consultas de referência;
 - a cascata de localização e os níveis CNEFE são explicáveis;
 - cobertura geral é pelo menos 90% e nenhuma cidade fica abaixo de 70%;

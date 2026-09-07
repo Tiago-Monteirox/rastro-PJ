@@ -9,7 +9,7 @@ Esta matriz materializa os 34 cenários cadastrais originais e os 12 cenários d
 
 ## Legenda
 
-- **Aprovado — automatizado:** existe teste direto e a suíte de 105 testes passou.
+- **Aprovado — automatizado:** existe teste direto e a suíte de 111 testes passou.
 - **Aprovado — oficial:** verificado internamente sobre a janela real ativa.
 - **Parcial:** parte crítica está coberta, mas falta uma variação ou evidência formal.
 - **Pendente:** ainda precisa de execução ou aceite específico.
@@ -72,14 +72,14 @@ Esta matriz materializa os 34 cenários cadastrais originais e os 12 cenários d
 
 | ID | Cenário e resultado esperado | Estado | Evidência interna |
 |---|---|---|---|
-| E1 | Página e três endpoints cartográficos exigem autenticação e representam uma única competência por consulta | Aprovado — automatizado | `test_page_and_every_api_require_authentication` e `test_bootstrap_uses_one_competence_and_all_seven_filters` |
-| E2 | Município, CNAE principal, matriz/filial, porte, perfil tributário e precisão combinam com a competência sem filtro silenciosamente ignorado | Aprovado — automatizado | os sete filtros válidos são exercitados em conjunto; município fora do recorte, porte desconhecido e formatos inválidos são rejeitados pelo contrato |
+| E1 | Página e três endpoints cartográficos exigem autenticação e representam uma única competência por consulta | Aprovado — automatizado | `test_page_and_every_api_require_authentication` e `test_bootstrap_uses_one_competence_and_all_eight_filters` |
+| E2 | Município, CNAE principal, matriz/filial, porte, perfil tributário, precisão e período de abertura combinam com a competência sem filtro silenciosamente ignorado | Aprovado — automatizado | os oito filtros válidos são exercitados em conjunto; município fora do recorte, porte, período e formatos desconhecidos são rejeitados pelo contrato |
 | E3 | Resumo entrega seis indicadores, rankings e limites dos 35 municípios sem confundir empresa com estabelecimento | Aprovado — oficial | projeção integral e smoke autenticado sobre `2026-08`; 270.411 estabelecimentos, 261.687 empresas e 35 municípios |
 | E4 | Correspondência de endereço é determinística, insensível a acentos e restrita a município, CEP, logradouro e número normalizados | Aprovado — automatizado | testes de normalização, chave de busca e melhor nível CNEFE em `test_matching.py` |
 | E5 | Múltiplos candidatos até 100 m escolhem um ponto CNEFE real; dispersão superior a 100 m recua para CEP | Aprovado — automatizado | testes de ambiguidade e de representante real em `test_matching.py` |
 | E6 | Cascata endereço → CEP → não localizado preserva método e nível; nenhum registro sem evidência recebe coordenada fabricada | Aprovado — automatizado | constraints, testes de matching/modelo e quality gate integral |
 | E7 | Endpoint detalhado retorna no máximo 5.000 grupos e amplia a agregação por CEP ou município sem truncar o universo | Aprovado — automatizado | `test_excess_detail_is_aggregated_without_silent_truncation`; o ponto do CEP permanece uma coordenada CNEFE real, e o benchmark de Uberlândia retornou 4.185 CEPs |
-| E8 | Clique em um grupo preserva coordenada, método e nível; detalhes empresariais são paginados em 25 e não expõem dados pessoais | Aprovado — automatizado | testes de grupo de precisão, paginação e ausência de CPF/quadro societário |
+| E8 | Clique em um grupo preserva a coordenada original, método e nível; mostra nome com link para a empresa; detalhes são paginados em 25 e não expõem dados pessoais | Aprovado — oficial | testes de identidade da coordenada, grupo de precisão, paginação e ausência de CPF/quadro societário; smoke test real do popup e do link empresarial |
 | E9 | Sem projeção, sem biblioteca ou sem token público, a aplicação mantém estado explicativo, indicadores e tabela; token secreto nunca chega ao HTML | Aprovado — automatizado | testes de projeção ausente, token `sk.` rejeitado e fallback textual da página |
 | E10 | Preparação manual é idempotente, reiniciável e só troca a projeção em publicação atômica após o quality gate | Aprovado — oficial | execução integral em 10 min 01,86 s, interrupção preservada como `FAILED` e reexecução no-op em 0,40 s |
 | E11 | Preparação usa menos de 2 GiB/30 min e consultas aquecidas respeitam p95 de 1,0 s no resumo e 1,5 s nos demais endpoints | Aprovado — oficial | RSS de aproximadamente 430 MiB; p95 de 0,536 s, 0,103 s, 0,251 s e 0,020 s |
@@ -87,7 +87,7 @@ Esta matriz materializa os 34 cenários cadastrais originais e os 12 cenários d
 
 ## Resultado por tipo de evidência
 
-- suíte atual: **105/105 testes aprovados** em PostgreSQL, em 3,619 s; a regressão cadastral G6 permanece registrada separadamente com seus 68 testes históricos;
+- suíte atual: **111/111 testes aprovados** em PostgreSQL, em 3,653 s; a regressão cadastral G6 permanece registrada separadamente com seus 68 testes históricos;
 - qualidade estática e configuração: Ruff, Django, migrações e Compose aprovados;
 - dados oficiais: **13 competências, 12 comparações e 13 revisões ativas `r2`**;
 - privacidade persistente: **zero bloqueio** na auditoria final do PostgreSQL e dos pacotes ativos;

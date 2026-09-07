@@ -14,12 +14,14 @@ Demonstrar que o Rastro PJ consegue transformar endereços cadastrais publicados
 |---|---|---:|---|
 | CNEFE | 2022 | 35 | `184d0ba825f825712e803bb206df3fe6d5625e2f0c707ce34f364eddf56beb59` |
 | Malha municipal IBGE | 2022, qualidade mínima | 35 | `5b9e1c0ea583975a5f5883770b532466b7f3432c2a7e5593d448831c4d6405e4` |
+| Catálogo de subclasses CNAE | API v2 do IBGE | 1.332 códigos | sincronização idempotente no PostgreSQL |
 
 Os 35 CSVs CNEFE possuem 961.993 linhas e 151 MiB extraídos. A malha possui 35 GeoJSON e 140 KiB. Arquivos permanecem em `var/data/cartography/`, fora do Git.
 
 ## Execução
 
 ```bash
+make sync-cnae
 make prepare-map
 ```
 
@@ -95,17 +97,22 @@ O endpoint detalhado nunca retorna mais de cinco mil localizações. Quando o co
 
 ## Smoke test no navegador
 
-A página autenticada foi aberta no Chrome em `http://localhost:8000/mapa/`, sem token Mapbox configurado e sem inicializar mapa ou consumir tiles. O estado degradado apresentou os sete filtros, os seis indicadores, rankings e a tabela sem erro de console.
+A página autenticada foi aberta no Chrome em `http://localhost:8000/mapa/` com token público Mapbox configurado localmente. A interface apresentou os oito filtros, seis indicadores, legenda de concentração, legenda de precisão, polígonos e pontos sem expor a credencial no Git.
 
-O recorte `Uberlândia + CNAE 7319002`, na competência `2026-08`, foi aplicado pela interface e produziu:
+O recorte `Uberlândia + abertura na competência`, em `2026-08`, foi aplicado pela interface e produziu:
 
-- 7.225 estabelecimentos ativos e 7.224 empresas distintas;
+- 705 estabelecimentos ativos e 704 empresas distintas;
 - um município com presença;
-- 7.219 matrizes e seis filiais;
-- cobertura geográfica de 96,93%;
-- URL atualizada com os filtros e tabela semântica preservada com os 35 municípios.
+- 696 matrizes e nove filiais;
+- cobertura geográfica de 96,03%;
+- URL e controles preservando os filtros após recarga;
+- CNAEs apresentados com código formatado e descrição oficial;
+- popup do ponto com a empresa `68.452.618 KARINA DIAS JORGE SANTOS` e link para `/empresas/68452618/`;
+- tabela detalhada coerente com o popup, incluindo CNAE e precisão espacial.
 
-Esse smoke comprova a operação degradada, o envio real do formulário, a atualização coerente dos indicadores e a alternativa acessível. A renderização dos polígonos e pontos continuará pendente até a configuração externa do token público dedicado.
+O teste revelou que as coordenadas retornadas pelo evento de clique do Mapbox sofrem quantização. O GeoJSON passou a preservar a coordenada original do PostgreSQL em propriedades próprias, usadas na consulta detalhada; o cenário real foi reexecutado com um estabelecimento retornado.
+
+Também foi preservado e automatizado o estado degradado: sem token, filtros, indicadores, rankings e a tabela continuam operacionais.
 
 ## Verificação automatizada
 
@@ -119,7 +126,7 @@ node --check apps/portal/static/portal/establishment-map.js
 docker compose config --quiet
 ```
 
-Resultado final: 105 testes aprovados em PostgreSQL em 3,619 s, sem falha de lint, formatação, Django, migração, JavaScript ou Compose.
+Resultado final: 111 testes aprovados em PostgreSQL em 3,653 s, sem falha de lint, formatação, Django, migração, JavaScript ou Compose.
 
 ## Conclusão
 

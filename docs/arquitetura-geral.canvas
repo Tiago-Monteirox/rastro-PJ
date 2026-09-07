@@ -212,7 +212,7 @@
       "y": 260,
       "width": 650,
       "height": 180,
-      "text": "## Qualidade dentro do monólito\n\n105 testes • PostgreSQL • transações • comandos • fluxos\n\nHomologações externas da equipe e do professor pendentes"
+      "text": "## Qualidade dentro do monólito\n\n111 testes • PostgreSQL • transações • comandos • fluxos\n\nHomologações externas da equipe e do professor pendentes"
     },
     {
       "id": "monolith-cartography",

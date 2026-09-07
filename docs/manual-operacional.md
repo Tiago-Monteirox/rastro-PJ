@@ -146,8 +146,11 @@ var/data/cartography/
 Depois da publicação da janela histórica, execute:
 
 ```bash
+make sync-cnae
 make prepare-map
 ```
+
+`sync-cnae` importa códigos e descrições da API CNAE v2 do IBGE. Ele é independente da projeção e pode ser reexecutado para atualizar os rótulos usados no filtro, nos rankings e nos detalhes do mapa.
 
 O comando equivalente e explícito é:
 
@@ -184,6 +187,8 @@ docker compose up -d --force-recreate web
 
 Sem token ou durante falha do Mapbox, filtros, indicadores, rankings e tabela municipal continuam disponíveis.
 
+O filtro de abertura usa a data de início do estabelecimento publicada pela Receita e é relativo à competência selecionada. Os recortes disponíveis são a própria competência e os últimos 3, 6 ou 12 meses, sempre incluindo o mês final.
+
 Resultado local de referência em 07/09/2026:
 
 | Medida | Resultado |
@@ -206,7 +211,7 @@ uv run ruff format --check .
 docker compose config --quiet
 ```
 
-Resultado interno de referência em 07/09/2026: 105 testes aprovados em PostgreSQL e nenhum erro de lint, formatação, Django, migração pendente, JavaScript ou Compose.
+Resultado interno de referência em 07/09/2026: 111 testes aprovados em PostgreSQL e nenhum erro de lint, formatação, Django, migração pendente, JavaScript ou Compose.
 
 ## 9. Sanidade do banco oficial
 

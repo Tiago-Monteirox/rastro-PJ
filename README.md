@@ -20,7 +20,7 @@ A janela oficial `2025-08..2026-08` está preparada e publicada localmente:
 
 As contagens de fotografias e observações cartográficas são somas das 13 competências, não quantidades de empresas únicas. O portal, a pesquisa, o detalhe, a timeline, os eventos, o dashboard, o mapa analítico, a watchlist e o acompanhamento de importações estão integrados ao mesmo monólito. O dashboard aceita competência inicial e final, município e CNAE; também apresenta os maiores aumentos de capital social e as maiores ampliações líquidas do quadro societário no recorte.
 
-A suíte atual possui 105 testes e foi aprovada em PostgreSQL. `ruff check`, `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. As revisões de pesquisa e QA, documentação, UI/UX e do professor permanecem pendentes e não são substituídas por essas verificações internas.
+A suíte atual possui 111 testes e foi aprovada em PostgreSQL. `ruff check`, `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. As revisões de pesquisa e QA, documentação, UI/UX e do professor permanecem pendentes e não são substituídas por essas verificações internas.
 
 ## Indicadores e eventos
 
@@ -112,6 +112,7 @@ make logs        # acompanha o servidor Django
 make migrate     # aplica migrations
 make test        # executa a suíte no PostgreSQL
 make lint        # confere estilo e formatação
+make sync-cnae   # sincroniza descrições oficiais da CNAE no IBGE
 make prepare-map # prepara ou confirma a projeção cartográfica
 ```
 
@@ -145,10 +146,11 @@ O pacote oficial ativo encontra-se em `var/data/packages/official-2025-08-2026-0
 Os 35 CSVs municipais do CNEFE 2022 devem ficar em `var/data/cartography/cnefe-2022/`, nomeados pelo código IBGE, como `3170206.csv`. As malhas municipais são obtidas da API gratuita do IBGE e persistidas fora do Git.
 
 ```bash
+make sync-cnae
 make prepare-map
 ```
 
-O comando inventaria e valida as fontes, resolve endereços distintos, aplica a cascata `endereço CNEFE → CEP → não localizado`, materializa as 13 competências, executa o quality gate e publica tudo atomicamente. A reexecução com os mesmos hashes é um no-op. Mapbox não recebe endereços e não é usado para geocodificação; apenas renderiza no navegador os dados consultados no Django.
+O primeiro comando mantém no PostgreSQL o catálogo oficial de códigos e descrições da CNAE. O segundo inventaria e valida as fontes, resolve endereços distintos, aplica a cascata `endereço CNEFE → CEP → não localizado`, materializa as 13 competências, executa o quality gate e publica tudo atomicamente. A reexecução com os mesmos hashes é um no-op. Mapbox não recebe endereços e não é usado para geocodificação; apenas renderiza no navegador os dados consultados no Django.
 
 ## Privacidade
 

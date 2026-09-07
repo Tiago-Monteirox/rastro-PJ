@@ -677,11 +677,15 @@ Os cinco insumos formam uma identidade idempotente. Um índice único parcial pe
 
 #### `cartography_observation`
 
-Cada linha é uma ocorrência de estabelecimento ativo em uma revisão e projeção. Ela referencia projeção, revisão, estabelecimento, empresa, município e a resolução que justifica o resultado; materializa coordenadas, método, nível, CEP, CNAE principal, matriz/filial, porte e perfil tributário para consulta.
+Cada linha é uma ocorrência de estabelecimento ativo em uma revisão e projeção. Ela referencia projeção, revisão, estabelecimento, empresa, município e a resolução que justifica o resultado; materializa coordenadas, método, nível, CEP, CNAE principal, data de início da atividade, matriz/filial, porte e perfil tributário para consulta.
 
-Constraint principal: `UNIQUE(projection_id, revision_id, establishment_id)`. Coordenadas são um par ou ambas nulas, e nível CNEFE válido fica entre 1 e 6. Índices compostos partem de `(projection_id, revision_id)` e cobrem município, CNAE, coordenadas, matriz/filial, porte, perfil tributário e método de localização.
+Constraint principal: `UNIQUE(projection_id, revision_id, establishment_id)`. Coordenadas são um par ou ambas nulas, e nível CNEFE válido fica entre 1 e 6. Índices compostos partem de `(projection_id, revision_id)` e cobrem município, CNAE, data de início, coordenadas, matriz/filial, porte, perfil tributário e método de localização.
 
 Essa tabela é uma projeção recalculável: não altera `EstablishmentSnapshot`, não transforma CNEFE em fonte cadastral e pode ser descartada junto com uma projeção falha. Revisão, estabelecimento, empresa, município e resolução usam proteção referencial; as observações usam `CASCADE` somente em relação à projeção proprietária.
+
+#### `cartography_cnae_subclass`
+
+Catálogo auxiliar oficial com código de sete dígitos, descrição, fonte e instante de sincronização. O código é a chave primária e segue validação estrutural. A tabela enriquece rótulos da interface, sem substituir o CNAE materializado em cada fotografia ou observação.
 
 ## 9. Regras de relacionamento e exclusão
 
