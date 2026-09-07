@@ -20,7 +20,7 @@ A janela oficial `2025-08..2026-08` está preparada e publicada localmente:
 
 As contagens de fotografias e observações cartográficas são somas das 13 competências, não quantidades de empresas únicas. O portal, a pesquisa, o detalhe, a timeline, os eventos, o dashboard, o mapa analítico, a watchlist e o acompanhamento de importações estão integrados ao mesmo monólito. O dashboard aceita competência inicial e final, município e CNAE; também apresenta os maiores aumentos de capital social e as maiores ampliações líquidas do quadro societário no recorte.
 
-A suíte atual possui 111 testes e foi aprovada em PostgreSQL. `ruff check`, `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. As revisões de pesquisa e QA, documentação, UI/UX e do professor permanecem pendentes e não são substituídas por essas verificações internas.
+A suíte atual possui 116 testes e foi aprovada em PostgreSQL. `ruff check`, `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. As revisões de pesquisa e QA, documentação, UI/UX e do professor permanecem pendentes e não são substituídas por essas verificações internas.
 
 ## Indicadores e eventos
 
@@ -151,6 +151,8 @@ make prepare-map
 ```
 
 O primeiro comando mantém no PostgreSQL o catálogo oficial de códigos e descrições da CNAE. O segundo inventaria e valida as fontes, resolve endereços distintos, aplica a cascata `endereço CNEFE → CEP → não localizado`, materializa as 13 competências, executa o quality gate e publica tudo atomicamente. A reexecução com os mesmos hashes é um no-op. Mapbox não recebe endereços e não é usado para geocodificação; apenas renderiza no navegador os dados consultados no Django.
+
+O mapa também possui um modo experimental de dinâmica territorial, que compara a competência selecionada com a publicada imediatamente antes dela. A semântica, os limites e as próximas fontes candidatas estão no [roadmap de inteligência territorial](docs/roadmap-inteligencia-territorial.md).
 
 ## Privacidade
 

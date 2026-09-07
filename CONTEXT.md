@@ -69,8 +69,8 @@ _Evitar_: primeiro mês de eventos, abertura em massa
 _Evitar_: estado futuro, fim da entidade
 
 **Competência cartográfica**:
-Única competência selecionada para compor o estado exibido no mapa analítico regional. A visualização inicia na competência publicada mais recente e nunca mistura fotografias de competências diferentes no mesmo estado do mapa.
-_Evitar_: intervalo cartográfico, soma de competências, posição atual permanente
+Competência de referência selecionada no mapa analítico regional. No modo de concentração, define isoladamente o estado exibido; no modo de dinâmica, é comparada de forma explícita somente à competência publicada imediatamente anterior.
+_Evitar_: soma de competências, posição atual permanente, intervalo arbitrário
 
 **Data de detecção**:
 Instante em que o importador calculou um evento derivado; não representa o dia exato em que a alteração cadastral ocorreu.
@@ -113,6 +113,26 @@ _Evitar_: escopo reduzido, piloto de produção
 **Mapa analítico regional**:
 Visualização geográfica voltada à descoberta de concentrações, distribuições e padrões dos estabelecimentos no recorte geográfico. Apresenta dados agregados em escalas regionais e revela estabelecimentos individuais somente após aproximação ou aplicação de filtros.
 _Evitar_: localizador cadastral, mapa de todos os endereços sem agregação
+
+**Modo de análise cartográfica**:
+Perspectiva que determina se o mapa apresenta o estoque ativo de uma competência ou a comparação entre duas competências consecutivas, mantendo explícita a semântica de cada resultado.
+_Evitar_: camada visual, filtro temporal, intervalo livre
+
+**Dinâmica territorial**:
+Comparação experimental do estoque de estabelecimentos elegíveis ao mapa entre a competência cartográfica e a competência publicada imediatamente anterior, com os mesmos filtros aplicados separadamente às duas fotografias.
+_Evitar_: previsão, tendência comprovada, comparação entre meses arbitrários
+
+**Variação do estoque ativo**:
+Diferença entre as quantidades filtradas de estabelecimentos elegíveis na competência atual e na anterior. Pode incluir ciclo de vida, movimentação regional e outros efeitos cadastrais.
+_Evitar_: saldo de aberturas e baixas, crescimento econômico, geração de empregos
+
+**Saldo de ciclo de vida**:
+Diferença entre aberturas e baixas de estabelecimento confirmadas pelos eventos derivados no intervalo de comparação.
+_Evitar_: variação do estoque, empresas criadas, saldo empresarial definitivo
+
+**Outros efeitos cadastrais**:
+Parcela residual da variação do estoque ativo após descontar o saldo de ciclo de vida, sem atribuição automática de causa específica.
+_Evitar_: erro, migração regional confirmada, alteração cadastral identificada
 
 **Recorte cartográfico da POC**:
 Os mesmos 35 municípios do recorte geográfico do Triângulo Mineiro, exibidos integralmente pelo mapa analítico regional desde a POC.

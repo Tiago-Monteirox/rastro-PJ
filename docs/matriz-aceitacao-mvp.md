@@ -1,15 +1,15 @@
 # Matriz de aceitação do MVP
 
 **Versão da matriz:** 07/09/2026
-**Total:** 46 cenários
+**Total:** 47 cenários
 **Janela de referência:** `2025-08..2026-08`  
 **Ambiente:** Mac local, Docker Compose, Django 5.2 e PostgreSQL
 
-Esta matriz materializa os 34 cenários cadastrais originais e os 12 cenários da projeção cartográfica. Ela separa teste automatizado, verificação interna no volume oficial e homologação externa. “Aprovado” nesta tabela significa evidência técnica interna; não significa aceite de pesquisa e QA, documentação, UI/UX ou do professor.
+Esta matriz materializa os 34 cenários cadastrais originais e os 13 cenários da projeção cartográfica. Ela separa teste automatizado, verificação interna no volume oficial e homologação externa. “Aprovado” nesta tabela significa evidência técnica interna; não significa aceite de pesquisa e QA, documentação, UI/UX ou do professor.
 
 ## Legenda
 
-- **Aprovado — automatizado:** existe teste direto e a suíte de 111 testes passou.
+- **Aprovado — automatizado:** existe teste direto e a suíte de 116 testes passou.
 - **Aprovado — oficial:** verificado internamente sobre a janela real ativa.
 - **Parcial:** parte crítica está coberta, mas falta uma variação ou evidência formal.
 - **Pendente:** ainda precisa de execução ou aceite específico.
@@ -72,8 +72,8 @@ Esta matriz materializa os 34 cenários cadastrais originais e os 12 cenários d
 
 | ID | Cenário e resultado esperado | Estado | Evidência interna |
 |---|---|---|---|
-| E1 | Página e três endpoints cartográficos exigem autenticação e representam uma única competência por consulta | Aprovado — automatizado | `test_page_and_every_api_require_authentication` e `test_bootstrap_uses_one_competence_and_all_eight_filters` |
-| E2 | Município, CNAE principal, matriz/filial, porte, perfil tributário, precisão e período de abertura combinam com a competência sem filtro silenciosamente ignorado | Aprovado — automatizado | os oito filtros válidos são exercitados em conjunto; município fora do recorte, porte, período e formatos desconhecidos são rejeitados pelo contrato |
+| E1 | Página e três endpoints cartográficos exigem autenticação; concentração usa uma competência e dinâmica declara a comparação consecutiva | Aprovado — automatizado | `test_page_and_every_api_require_authentication`, `test_bootstrap_uses_one_competence_and_all_eight_filters` e testes do modo dinâmico |
+| E2 | Modo, município, CNAE principal, matriz/filial, porte, perfil tributário, precisão e período de abertura respeitam suas combinações válidas sem filtro silenciosamente ignorado | Aprovado — automatizado | os oito filtros da concentração são exercitados em conjunto; modo, município, porte, período e formatos desconhecidos são validados pelo contrato |
 | E3 | Resumo entrega seis indicadores, rankings e limites dos 35 municípios sem confundir empresa com estabelecimento | Aprovado — oficial | projeção integral e smoke autenticado sobre `2026-08`; 270.411 estabelecimentos, 261.687 empresas e 35 municípios |
 | E4 | Correspondência de endereço é determinística, insensível a acentos e restrita a município, CEP, logradouro e número normalizados | Aprovado — automatizado | testes de normalização, chave de busca e melhor nível CNEFE em `test_matching.py` |
 | E5 | Múltiplos candidatos até 100 m escolhem um ponto CNEFE real; dispersão superior a 100 m recua para CEP | Aprovado — automatizado | testes de ambiguidade e de representante real em `test_matching.py` |
@@ -84,10 +84,11 @@ Esta matriz materializa os 34 cenários cadastrais originais e os 12 cenários d
 | E10 | Preparação manual é idempotente, reiniciável e só troca a projeção em publicação atômica após o quality gate | Aprovado — oficial | execução integral em 10 min 01,86 s, interrupção preservada como `FAILED` e reexecução no-op em 0,40 s |
 | E11 | Preparação usa menos de 2 GiB/30 min e consultas aquecidas respeitam p95 de 1,0 s no resumo e 1,5 s nos demais endpoints | Aprovado — oficial | RSS de aproximadamente 430 MiB; p95 de 0,536 s, 0,103 s, 0,251 s e 0,020 s |
 | E12 | Fontes CNEFE e malhas possuem inventário, SHA-256, validação estrutural e cobertura mínima de 90% global/70% por município | Aprovado — oficial | 13/13 competências, 35/35 limites, 95,21% global, nenhuma falha municipal ou estrutural; consulte G7 |
+| E13 | Modo experimental compara competências consecutivas, separa variação do estoque de eventos confirmados, rejeita baseline/filtro incompatível e mantém o mapa padrão intacto | Aprovado — oficial | testes de crescimento, retração, baseline, contrato e pontos; `2026-07 → 2026-08` conferido no volume real e resumo aquecido abaixo de 1 s |
 
 ## Resultado por tipo de evidência
 
-- suíte atual: **111/111 testes aprovados** em PostgreSQL, em 3,653 s; a regressão cadastral G6 permanece registrada separadamente com seus 68 testes históricos;
+- suíte atual: **116/116 testes aprovados** em PostgreSQL, em 4,733 s; a regressão cadastral G6 permanece registrada separadamente com seus 68 testes históricos;
 - qualidade estática e configuração: Ruff, Django, migrações e Compose aprovados;
 - dados oficiais: **13 competências, 12 comparações e 13 revisões ativas `r2`**;
 - privacidade persistente: **zero bloqueio** na auditoria final do PostgreSQL e dos pacotes ativos;

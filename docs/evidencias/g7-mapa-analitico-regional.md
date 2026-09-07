@@ -83,6 +83,26 @@ Vinte execuções locais por cenário, com PostgreSQL e cache aquecidos:
 
 O endpoint detalhado nunca retorna mais de cinco mil localizações. Quando o conjunto excede o limite, responde com agregação por CEP; se essa camada também exceder, responde por município e informa o motivo.
 
+## Experimento de dinâmica territorial
+
+O modo experimental compara a competência de referência somente à publicada imediatamente antes dela. Na comparação `2026-07 → 2026-08`, sem filtros adicionais:
+
+| Medida | Resultado |
+|---|---:|
+| estoque ativo anterior | 266.808 |
+| estoque ativo atual | 270.411 |
+| variação do estoque | +3.603 (+1,35%) |
+| aberturas confirmadas | 3.379 |
+| baixas confirmadas | 2.089 |
+| saldo de ciclo de vida | +1.290 |
+| outros efeitos cadastrais | +2.313 |
+
+A decomposição fecha: `3.603 = (3.379 − 2.089) + 2.313`. O resíduo não recebe causa automática; pode reunir movimentação regional, alterações de situação ou categoria, aparições tardias e efeitos dos filtros.
+
+Cinco execuções aquecidas do resumo regional variaram de 0,836 s a 0,847 s. Uberlândia variou de 0,460 s a 0,477 s e o CNAE `4711-3/02`, de 0,016 s a 0,021 s. Todos permaneceram abaixo do limite de 1 segundo.
+
+O contrato automatizado cobre crescimento, retração, eventos confirmados, baseline, modo inválido, combinação incompatível e supressão de pontos individuais. A tabela municipal apresenta os mesmos valores do mapa.
+
 ## Segurança, privacidade e degradação
 
 - página e três endpoints cartográficos exigem autenticação;
@@ -126,7 +146,7 @@ node --check apps/portal/static/portal/establishment-map.js
 docker compose config --quiet
 ```
 
-Resultado final: 111 testes aprovados em PostgreSQL em 3,653 s, sem falha de lint, formatação, Django, migração, JavaScript ou Compose.
+Resultado final: 116 testes aprovados em PostgreSQL em 4,733 s, sem falha de lint, formatação, Django, migração, JavaScript ou Compose.
 
 ## Conclusão
 

@@ -16,7 +16,7 @@
 - [`backend-cnpj-regional-plano-implementacao.md`](backend-cnpj-regional-plano-implementacao.md), plano técnico aprovado para implementação local;
 - [`modelagem-banco-dados.md`](modelagem-banco-dados.md), modelo relacional aprovado para implementação inicial;
 - [`arquitetura-geral.canvas`](arquitetura-geral.canvas), visão geral em Obsidian Canvas;
-- [`matriz-aceitacao-mvp.md`](matriz-aceitacao-mvp.md), estado dos 34 cenários cadastrais e dos 12 cenários cartográficos adicionados posteriormente;
+- [`matriz-aceitacao-mvp.md`](matriz-aceitacao-mvp.md), estado dos 34 cenários cadastrais e dos 13 cenários cartográficos adicionados posteriormente;
 - [`manual-operacional.md`](manual-operacional.md), execução e validação local;
 - [`evidencias/g3-g5-janela-oficial.md`](evidencias/g3-g5-janela-oficial.md), volume oficial e produto integrado;
 - [`evidencias/g6-regressao-interna.md`](evidencias/g6-regressao-interna.md), regressão técnica e limite do aceite;

@@ -211,7 +211,7 @@ uv run ruff format --check .
 docker compose config --quiet
 ```
 
-Resultado interno de referência em 07/09/2026: 111 testes aprovados em PostgreSQL e nenhum erro de lint, formatação, Django, migração pendente, JavaScript ou Compose.
+Resultado interno de referência em 07/09/2026: 116 testes aprovados em PostgreSQL e nenhum erro de lint, formatação, Django, migração pendente, JavaScript ou Compose.
 
 ## 9. Sanidade do banco oficial
 

@@ -355,6 +355,21 @@ Ao selecionar outra competência, elegibilidade, endereço, localização, indic
 - 35 municípios e 13 competências aprovados pelo quality gate;
 - evidência detalhada em [G7 — Mapa analítico regional](evidencias/g7-mapa-analitico-regional.md).
 
+## Adendo experimental — dinâmica territorial
+
+Em 7 de setembro de 2026 foi iniciado, sem alterar o modo padrão da POC, um experimento reversível de comparação entre competências consecutivas. O experimento amplia pontualmente D6, D8 e D9:
+
+- adiciona um modo explícito de dinâmica territorial, separado da concentração atual;
+- compara a competência selecionada somente à publicada imediatamente anterior;
+- aplica município, CNAE, matriz/filial, porte, perfil tributário e precisão às duas fotografias;
+- não combina período de abertura com a comparação;
+- apresenta somente os polígonos municipais, sem pontos individuais;
+- distingue variação do estoque, aberturas e baixas confirmadas, saldo de ciclo de vida e outros efeitos cadastrais;
+- usa escala divergente simétrica e rankings pelo movimento absoluto, preservando o sinal;
+- mantém o modo de concentração, suas oito opções de filtro e a navegação progressiva inalterados.
+
+O adendo não transforma comparação cadastral em previsão econômica e não autoriza animação, períodos arbitrários ou atribuição causal ao resíduo. O contrato e os próximos experimentos estão no [roadmap de inteligência territorial](roadmap-inteligencia-territorial.md).
+
 ## Fontes externas consultadas
 
 - [Mapbox GL JS — grandes fontes GeoJSON](https://docs.mapbox.com/help/troubleshooting/working-with-large-geojson-data/)
