@@ -12,6 +12,7 @@ from apps.cartography.models import (
     CnaeSubclass,
     GeographicSource,
     MunicipalityBoundary,
+    MunicipalityPopulation,
 )
 from apps.changes.models import ChangeEvent
 from apps.geography.models import ScopeMunicipality
@@ -62,6 +63,21 @@ class CartographicPortalTests(TestCase):
             kind=GeographicSource.Kind.MUNICIPAL_BOUNDARIES,
             version="2022-minima",
             content_hash="6" * 64,
+        )
+        cls.population_source = GeographicSource.objects.create(
+            kind=GeographicSource.Kind.MUNICIPAL_POPULATION,
+            version="Censo 2022",
+            content_hash="4" * 64,
+            manifest={
+                "reference_year": 2022,
+                "url": "https://apisidra.ibge.gov.br/values",
+            },
+        )
+        MunicipalityPopulation.objects.create(
+            source=cls.population_source,
+            municipality=cls.municipality,
+            reference_year=2022,
+            population=1_000,
         )
         MunicipalityBoundary.objects.create(
             source=cls.boundary_source,
@@ -278,6 +294,8 @@ class CartographicPortalTests(TestCase):
         self.assertContains(response, "pk.test-public-token")
         self.assertContains(response, "Verde claro indica menos estabelecimentos")
         self.assertContains(response, "Agrupamento por CEP")
+        self.assertContains(response, "População (2022)")
+        self.assertContains(response, "Estabelecimentos por mil habitantes")
         self.assertContains(
             response,
             "4711-3/02 — COMÉRCIO VAREJISTA DE MERCADORIAS EM GERAL",
@@ -314,7 +332,13 @@ class CartographicPortalTests(TestCase):
         self.assertEqual(payload["selection"]["competence"], "2026-08")
         self.assertEqual(payload["selection"]["opening_period"], "6")
         self.assertEqual(payload["selection"]["analysis_mode"], "stock")
+        self.assertEqual(payload["selection"]["map_metric"], "absolute")
         self.assertIsNone(payload["dynamics"])
+        self.assertEqual(payload["population_reference"]["population"], 1_000)
+        self.assertEqual(
+            payload["population_reference"]["establishments_per_1000"],
+            1.0,
+        )
         self.assertEqual(len(payload["municipalities"]["features"]), 1)
         self.assertEqual(
             payload["municipalities"]["features"][0]["properties"]["bbox"],
@@ -342,12 +366,14 @@ class CartographicPortalTests(TestCase):
                 "municipality": "3170206",
                 "cnae": "4711302",
                 "opening_period": "6",
+                "map_metric": "per_1000",
             },
         )
 
         self.assertContains(response, 'option value="3170206" selected')
         self.assertContains(response, 'value="4711302" list="map-cnae-options"')
         self.assertContains(response, 'option value="6" selected')
+        self.assertContains(response, 'option value="per_1000" selected')
 
     def test_unknown_opening_period_is_rejected(self):
         response = self.client.get(
@@ -461,6 +487,60 @@ class CartographicPortalTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("Modo de análise inválido", response.json()["error"])
+
+    def test_population_metric_normalizes_municipal_analysis(self):
+        response = self.client.get(
+            "/mapa/api/resumo/",
+            {"competence": "2026-08", "map_metric": "per_1000"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["selection"]["map_metric"], "per_1000")
+        self.assertEqual(payload["population_reference"]["reference_year"], 2022)
+        self.assertEqual(
+            payload["population_reference"]["municipalities_with_population"],
+            1,
+        )
+        self.assertEqual(
+            payload["rankings"]["municipalities"][0]["establishments_per_1000"],
+            1.0,
+        )
+        properties = payload["municipalities"]["features"][0]["properties"]
+        self.assertEqual(properties["population"], 1_000)
+        self.assertEqual(properties["establishments_per_1000"], 1.0)
+
+    def test_population_metric_rejects_invalid_combinations_and_incomplete_reference(self):
+        unknown = self.client.get(
+            "/mapa/api/resumo/",
+            {"competence": "2026-08", "map_metric": "market_potential"},
+        )
+        dynamics = self.client.get(
+            "/mapa/api/resumo/",
+            {
+                "competence": "2026-08",
+                "analysis_mode": "dynamics",
+                "map_metric": "per_1000",
+            },
+        )
+        MunicipalityPopulation.objects.all().delete()
+        unavailable = self.client.get(
+            "/mapa/api/resumo/",
+            {"competence": "2026-08", "map_metric": "per_1000"},
+        )
+        absolute = self.client.get(
+            "/mapa/api/resumo/",
+            {"competence": "2026-08", "map_metric": "absolute"},
+        )
+
+        self.assertEqual(unknown.status_code, 400)
+        self.assertIn("Métrica municipal inválida", unknown.json()["error"])
+        self.assertEqual(dynamics.status_code, 400)
+        self.assertIn("não pode ser combinada", dynamics.json()["error"])
+        self.assertEqual(unavailable.status_code, 400)
+        self.assertIn("ainda não foi sincronizada", unavailable.json()["error"])
+        self.assertEqual(absolute.status_code, 200)
+        self.assertFalse(absolute.json()["population_reference"]["available"])
 
     def test_dynamics_hides_individual_points_and_preserves_page_selection(self):
         locations = self.client.get(

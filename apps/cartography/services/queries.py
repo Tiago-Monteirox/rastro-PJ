@@ -17,6 +17,7 @@ from apps.cartography.models import (
     CartographicProjection,
     CnaeSubclass,
     MunicipalityBoundary,
+    MunicipalityPopulation,
 )
 from apps.changes.models import ChangeEvent
 from apps.pipeline.models import CompetenceRevision
@@ -46,6 +47,10 @@ ANALYSIS_MODES = {
     "stock": "Concentração atual",
     "dynamics": "Dinâmica territorial (experimental)",
 }
+MAP_METRICS = {
+    "absolute": "Volume absoluto",
+    "per_1000": "Por mil habitantes (Censo 2022)",
+}
 
 
 class MapQueryError(Exception):
@@ -65,6 +70,7 @@ class MapSelection:
     precision: str = ""
     opening_period: str = ""
     analysis_mode: str = "stock"
+    map_metric: str = "absolute"
 
     def as_dict(self) -> dict[str, str]:
         return {
@@ -77,6 +83,7 @@ class MapSelection:
             "precision": self.precision,
             "opening_period": self.opening_period,
             "analysis_mode": self.analysis_mode,
+            "map_metric": self.map_metric,
         }
 
 
@@ -103,6 +110,7 @@ def map_page_context() -> dict:
             "branch_options": (("1", "Matriz"), ("2", "Filial")),
             "opening_options": OPENING_PERIODS.items(),
             "analysis_mode_options": ANALYSIS_MODES.items(),
+            "map_metric_options": MAP_METRICS.items(),
         }
 
     revisions = _projection_revisions(projection)
@@ -151,6 +159,7 @@ def map_page_context() -> dict:
         "branch_options": (("1", "Matriz"), ("2", "Filial")),
         "opening_options": OPENING_PERIODS.items(),
         "analysis_mode_options": ANALYSIS_MODES.items(),
+        "map_metric_options": MAP_METRICS.items(),
     }
 
 
@@ -203,6 +212,13 @@ def parse_selection(filters: Mapping[str, str]) -> MapSelection:
         raise MapQueryError(
             "O período de abertura não pode ser combinado com a dinâmica territorial."
         )
+    map_metric = str(filters.get("map_metric", "absolute")).strip() or "absolute"
+    if map_metric not in MAP_METRICS:
+        raise MapQueryError("Métrica municipal inválida.")
+    if analysis_mode == "dynamics" and map_metric != "absolute":
+        raise MapQueryError(
+            "A métrica por mil habitantes não pode ser combinada com a dinâmica territorial."
+        )
 
     return MapSelection(
         projection=projection,
@@ -216,6 +232,7 @@ def parse_selection(filters: Mapping[str, str]) -> MapSelection:
         precision=precision,
         opening_period=opening_period,
         analysis_mode=analysis_mode,
+        map_metric=map_metric,
     )
 
 
@@ -248,6 +265,15 @@ def bootstrap_payload(filters: Mapping[str, str]) -> dict:
         .order_by("-total", "municipality__name")
     )
     municipality_counts = {row["municipality_id"]: row for row in municipality_rows}
+    population_by_municipality, population_reference = _population_reference(
+        selection,
+        totals=totals,
+        municipality_counts=municipality_counts,
+    )
+    if selection.map_metric == "per_1000" and not population_reference["available"]:
+        raise MapQueryError(
+            "A referência demográfica ainda não foi sincronizada para todos os municípios."
+        )
     dynamics_analysis = None
     if selection.analysis_mode == "dynamics":
         dynamics_analysis = _dynamics_analysis(
@@ -258,7 +284,12 @@ def bootstrap_payload(filters: Mapping[str, str]) -> dict:
         rankings = dynamics_analysis["rankings"]
         municipality_dynamics = dynamics_analysis["municipalities"]
     else:
-        rankings = _stock_rankings(observations, municipality_rows)
+        rankings = _stock_rankings(
+            observations,
+            municipality_rows,
+            population_by_municipality=population_by_municipality,
+            map_metric=selection.map_metric,
+        )
         municipality_dynamics = None
     return {
         "selection": selection.as_dict(),
@@ -294,11 +325,13 @@ def bootstrap_payload(filters: Mapping[str, str]) -> dict:
             },
         },
         "dynamics": dynamics_analysis["summary"] if dynamics_analysis else None,
+        "population_reference": population_reference,
         "rankings": rankings,
         "municipalities": _municipality_feature_collection(
             selection,
             municipality_counts,
             dynamics=municipality_dynamics,
+            population_by_municipality=population_by_municipality,
         ),
     }
 
@@ -494,7 +527,13 @@ def filtered_observations(
     return queryset
 
 
-def _stock_rankings(observations: QuerySet, municipality_rows: list[dict]) -> dict:
+def _stock_rankings(
+    observations: QuerySet,
+    municipality_rows: list[dict],
+    *,
+    population_by_municipality: dict[int, int],
+    map_metric: str,
+) -> dict:
     cnae_ranking = list(
         observations.exclude(main_cnae_code="")
         .values("main_cnae_code")
@@ -502,20 +541,34 @@ def _stock_rankings(observations: QuerySet, municipality_rows: list[dict]) -> di
         .order_by("-total", "main_cnae_code")[:10]
     )
     cnae_descriptions = _cnae_descriptions([row["main_cnae_code"] for row in cnae_ranking])
-    return {
-        "municipalities": [
+    municipality_ranking = []
+    for row in municipality_rows:
+        population = population_by_municipality.get(row["municipality_id"])
+        municipality_ranking.append(
             {
                 "ibge_code": row["municipality__ibge_code"],
                 "name": row["municipality__name"],
                 "establishments": row["total"],
                 "companies": row["companies"],
+                "population": population,
+                "establishments_per_1000": _per_1000(row["total"], population),
+                "companies_per_1000": _per_1000(row["companies"], population),
                 "coverage_percentage": round(
                     (row["located"] / row["total"] * 100) if row["total"] else 0,
                     2,
                 ),
             }
-            for row in municipality_rows[:10]
-        ],
+        )
+    if map_metric == "per_1000":
+        municipality_ranking.sort(
+            key=lambda row: (
+                -(row["establishments_per_1000"] or 0),
+                -row["establishments"],
+                row["name"],
+            )
+        )
+    return {
+        "municipalities": municipality_ranking[:10],
         "cnaes": [
             {
                 "code": row["main_cnae_code"],
@@ -698,6 +751,86 @@ def _percentage_change(previous: int, change: int) -> float | None:
     return round(change / previous * 100, 2) if previous else None
 
 
+def _per_1000(value: int, population: int | None) -> float | None:
+    return round(value / population * 1000, 2) if population else None
+
+
+def _population_reference(
+    selection: MapSelection,
+    *,
+    totals: dict,
+    municipality_counts: dict[int, dict],
+) -> tuple[dict[int, int], dict]:
+    memberships = list(
+        selection.projection.historical_window.geographic_scope.scope_municipalities.select_related(
+            "municipality"
+        )
+    )
+    scope_municipality_ids = [membership.municipality_id for membership in memberships]
+    expected = len(scope_municipality_ids)
+    latest_complete_reference = (
+        MunicipalityPopulation.objects.filter(municipality_id__in=scope_municipality_ids)
+        .values("reference_year", "source_id")
+        .annotate(total=Count("municipality_id", distinct=True))
+        .filter(total=expected)
+        .order_by("-reference_year", "-source__created_at")
+        .first()
+    )
+    if latest_complete_reference is None:
+        return {}, {
+            "available": False,
+            "reference_year": None,
+            "source": "",
+            "source_url": "",
+            "population": None,
+            "establishments_per_1000": None,
+            "companies_per_1000": None,
+            "municipalities_with_population": 0,
+            "expected_municipalities": expected,
+            "scale_max": None,
+        }
+
+    rows = list(
+        MunicipalityPopulation.objects.filter(
+            municipality_id__in=scope_municipality_ids,
+            reference_year=latest_complete_reference["reference_year"],
+            source_id=latest_complete_reference["source_id"],
+        ).select_related("source")
+    )
+    population_by_municipality = {row.municipality_id: row.population for row in rows}
+    selected_municipality_ids = scope_municipality_ids
+    if selection.municipality:
+        selected_municipality_ids = [
+            membership.municipality_id
+            for membership in memberships
+            if membership.municipality.ibge_code == selection.municipality
+        ]
+    selected_population = sum(
+        population_by_municipality[municipality_id] for municipality_id in selected_municipality_ids
+    )
+    municipal_ratios = [
+        _per_1000(
+            municipality_counts.get(municipality_id, {"total": 0})["total"],
+            population_by_municipality[municipality_id],
+        )
+        or 0
+        for municipality_id in scope_municipality_ids
+    ]
+    source = rows[0].source
+    return population_by_municipality, {
+        "available": True,
+        "reference_year": latest_complete_reference["reference_year"],
+        "source": source.version,
+        "source_url": source.manifest.get("url", ""),
+        "population": selected_population,
+        "establishments_per_1000": _per_1000(totals["establishments"], selected_population),
+        "companies_per_1000": _per_1000(totals["companies"], selected_population),
+        "municipalities_with_population": len(population_by_municipality),
+        "expected_municipalities": expected,
+        "scale_max": max(municipal_ratios, default=0),
+    }
+
+
 def _previous_revision(selection: MapSelection) -> CompetenceRevision:
     revisions = _projection_revisions(selection.projection)
     revision_ids = [revision.pk for revision in revisions]
@@ -835,6 +968,7 @@ def _municipality_feature_collection(
     municipality_counts: dict[int, dict],
     *,
     dynamics: dict[int, dict] | None = None,
+    population_by_municipality: dict[int, int] | None = None,
 ) -> dict:
     features = []
     boundaries = MunicipalityBoundary.objects.filter(
@@ -858,6 +992,7 @@ def _municipality_feature_collection(
                 "other_effects": 0,
             },
         )
+        population = (population_by_municipality or {}).get(boundary.municipality_id)
         features.append(
             {
                 "type": "Feature",
@@ -870,6 +1005,9 @@ def _municipality_feature_collection(
                     "establishments": row["total"],
                     "companies": row["companies"],
                     "coverage_percentage": round(coverage, 2),
+                    "population": population,
+                    "establishments_per_1000": _per_1000(row["total"], population),
+                    "companies_per_1000": _per_1000(row["companies"], population),
                     **{
                         key: dynamic_values[key]
                         for key in (

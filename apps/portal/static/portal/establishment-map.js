@@ -12,6 +12,10 @@
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
+  const decimalNumber = new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
   const initialData = initialElement ? JSON.parse(initialElement.textContent) : null;
   let currentData = initialData;
   let map = null;
@@ -65,6 +69,11 @@
     return "neutral-value";
   };
 
+  const formattedPerThousand = (value) => {
+    if (value === null || value === undefined) return "Sem referência";
+    return `${decimalNumber.format(value)}/1 mil`;
+  };
+
   const rankingRows = (
     items,
     label,
@@ -98,7 +107,14 @@
     const body = document.querySelector("#map-municipality-body");
     const headers = isDynamics
       ? ["Município", "Anterior", "Atual", "Variação", "Taxa", "Aberturas", "Baixas"]
-      : ["Município", "Estabelecimentos", "Empresas", "Cobertura"];
+      : [
+        "Município",
+        "Estabelecimentos",
+        "Empresas",
+        `População (${data.population_reference.reference_year || "sem referência"})`,
+        "Estab./1 mil hab.",
+        "Cobertura",
+      ];
     const headerRow = document.createElement("tr");
     headers.forEach((value) => {
       const header = document.createElement("th");
@@ -125,6 +141,10 @@
             properties.name,
             number.format(properties.establishments),
             number.format(properties.companies),
+            properties.population === null ? "—" : number.format(properties.population),
+            properties.establishments_per_1000 === null
+              ? "—"
+              : decimalNumber.format(properties.establishments_per_1000),
             `${properties.coverage_percentage.toLocaleString("pt-BR")}%`,
           ];
         values.forEach((value, index) => {
@@ -164,6 +184,10 @@
     document.querySelector("#map-stock-legend").hidden = isDynamics;
     document.querySelector("#map-dynamics-legend").hidden = !isDynamics;
     document.querySelector("#map-point-legend").hidden = isDynamics;
+    document.querySelector("#map-population-indicators").hidden =
+      isDynamics || !data.population_reference.available;
+    document.querySelector("#map-population-note").hidden =
+      isDynamics || !data.population_reference.available;
     document.querySelector("#map-mode-eyebrow").textContent = isDynamics
       ? "Comparação entre competências consecutivas"
       : "Municípios → agregados → estabelecimentos";
@@ -172,7 +196,9 @@
       : "Distribuição espacial";
     document.querySelector("#municipality-ranking-eyebrow").textContent = isDynamics
       ? "Maiores movimentos absolutos"
-      : "Concentração";
+      : data.selection.map_metric === "per_1000"
+        ? "Densidade cadastral populacional"
+        : "Concentração";
     document.querySelector("#cnae-ranking-eyebrow").textContent = isDynamics
       ? "Maiores movimentos absolutos"
       : "Atividade econômica";
@@ -180,8 +206,12 @@
       ? "Variações por CNAE"
       : "CNAEs principais";
     document.querySelector("#map-filter-note").textContent = isDynamics
-      ? "Os mesmos filtros são aplicados separadamente às duas competências. O período de abertura fica indisponível para não distorcer a comparação."
-      : "Os filtros atualizam o mapa, os indicadores, os rankings e a tabela municipal com o mesmo recorte. “Ativo” refere-se à situação na competência escolhida.";
+      ? "Os mesmos filtros são aplicados separadamente às duas competências. Período de abertura e métrica populacional ficam indisponíveis para não distorcer a comparação."
+      : data.selection.map_metric === "per_1000"
+        ? `O mapa e o ranking municipal mostram estabelecimentos ativos por mil habitantes da referência ${data.population_reference.reference_year}. Os demais indicadores preservam seus valores absolutos.`
+        : "Os filtros atualizam o mapa, os indicadores, os rankings e a tabela municipal com o mesmo recorte. “Ativo” refere-se à situação na competência escolhida.";
+
+    updateStockLegend(data);
 
     if (!dynamics) return;
     setDynamicsMetric("previous", dynamics.previous_establishments);
@@ -198,6 +228,53 @@
       `Comparação ${competenceLabel(dynamics.from_competence)} → ${competenceLabel(dynamics.to_competence)}. ` +
       `Saldo de ciclo de vida: ${signedNumber(dynamics.lifecycle_balance)}. ` +
       `Outros efeitos cadastrais: ${signedNumber(dynamics.other_effects)}.`;
+  };
+
+  const renderPopulationPresentation = (data) => {
+    const reference = data.population_reference;
+    if (!reference.available) return;
+    const values = {
+      population: number.format(reference.population),
+      establishments: decimalNumber.format(reference.establishments_per_1000),
+      companies: decimalNumber.format(reference.companies_per_1000),
+      coverage: `${reference.municipalities_with_population}/${reference.expected_municipalities}`,
+    };
+    for (const [name, value] of Object.entries(values)) {
+      const element = document.querySelector(`[data-population-metric="${name}"]`);
+      if (element) element.textContent = value;
+    }
+    document.querySelector("#map-population-note").textContent =
+      `Competência cadastral ${competenceLabel(data.selection.competence)}; ` +
+      `população residente do ${reference.source}.`;
+  };
+
+  const updateStockLegend = (data) => {
+    const perThousand = data.selection.map_metric === "per_1000";
+    const title = document.querySelector("#map-stock-legend-title");
+    const note = document.querySelector("#map-stock-legend-note");
+    const labels = {
+      minimum: document.querySelector('[data-stock-scale="minimum"]'),
+      low: document.querySelector('[data-stock-scale="low"]'),
+      high: document.querySelector('[data-stock-scale="high"]'),
+      maximum: document.querySelector('[data-stock-scale="maximum"]'),
+    };
+    if (!perThousand) {
+      title.textContent = "Concentração municipal";
+      note.textContent = "Verde claro indica menos estabelecimentos; verde escuro, maior concentração.";
+      labels.minimum.textContent = "0";
+      labels.low.textContent = "1 mil";
+      labels.high.textContent = "10 mil";
+      labels.maximum.textContent = "100 mil+";
+      return;
+    }
+    const scale = Math.max(data.population_reference.scale_max || 0, 1);
+    title.textContent = "Estabelecimentos por mil habitantes";
+    note.textContent =
+      `Verde escuro indica maior presença cadastral relativa à população residente de ${data.population_reference.reference_year}.`;
+    labels.minimum.textContent = "0";
+    labels.low.textContent = decimalNumber.format(scale / 3);
+    labels.high.textContent = decimalNumber.format(scale * 2 / 3);
+    labels.maximum.textContent = decimalNumber.format(scale);
   };
 
   const focusSelectedMunicipality = (data) => {
@@ -229,15 +306,25 @@
       "coverage",
       `${indicators.geographic_coverage.percentage.toLocaleString("pt-BR")}%`,
     );
+    renderPopulationPresentation(data);
     renderModePresentation(data);
     const isDynamics = Boolean(data.dynamics);
+    const perThousand = data.selection.map_metric === "per_1000";
     replaceChildren(
       document.querySelector("#municipality-ranking"),
       rankingRows(
         data.rankings.municipalities,
         (item) => item.name,
-        (item) => isDynamics ? item.stock_change : item.establishments,
-        isDynamics ? signedNumber : number.format.bind(number),
+        (item) => isDynamics
+          ? item.stock_change
+          : perThousand
+            ? item.establishments_per_1000
+            : item.establishments,
+        isDynamics
+          ? signedNumber
+          : perThousand
+            ? formattedPerThousand
+            : number.format.bind(number),
         isDynamics,
       ),
     );
@@ -294,6 +381,18 @@
     }
     detail.textContent = `${number.format(properties.total)} estabelecimento(s) de ${number.format(properties.companies)} empresa(s).`;
     wrapper.append(heading, detail);
+    if (
+      properties.kind === "municipality" &&
+      properties.population !== null &&
+      properties.population !== undefined
+    ) {
+      const populationContext = document.createElement("p");
+      populationContext.textContent =
+        `Presença relativa: ${decimalNumber.format(properties.establishments_per_1000)} ` +
+        `estabelecimento(s) por mil habitantes; população de referência: ` +
+        `${number.format(properties.population)} habitantes.`;
+      wrapper.append(populationContext);
+    }
     if (properties.kind === "location") {
       const companies = document.createElement("div");
       companies.dataset.popupCompanies = "";
@@ -620,6 +719,14 @@
     100000, "#0b5b3f",
   ];
 
+  const perThousandFillExpression = (scale) => [
+    "interpolate", ["linear"], ["get", "establishments_per_1000"],
+    0, "#edf4ef",
+    scale / 3, "#add6bc",
+    scale * 2 / 3, "#4e9d73",
+    scale, "#0b5b3f",
+  ];
+
   const dynamicsFillExpression = (scale) => [
     "interpolate", ["linear"], ["get", "stock_change"],
     -scale, "#a63d40",
@@ -632,10 +739,16 @@
   const applyMapMode = (data) => {
     if (!mapReady) return;
     const dynamics = data.dynamics;
+    const perThousand = data.selection.map_metric === "per_1000";
+    const populationScale = Math.max(data.population_reference.scale_max || 0, 1);
     map.setPaintProperty(
       "municipality-fill",
       "fill-color",
-      dynamics ? dynamicsFillExpression(Math.max(dynamics.scale_max, 1)) : stockFillExpression,
+      dynamics
+        ? dynamicsFillExpression(Math.max(dynamics.scale_max, 1))
+        : perThousand
+          ? perThousandFillExpression(populationScale)
+          : stockFillExpression,
     );
     map.setLayoutProperty(
       "location-circles",
@@ -658,8 +771,13 @@
   const syncModeControls = () => {
     const isDynamics = document.querySelector("#map-analysis-mode").value === "dynamics";
     const openingPeriod = form.elements.namedItem("opening_period");
+    const mapMetric = form.elements.namedItem("map_metric");
     openingPeriod.disabled = isDynamics;
-    if (isDynamics) openingPeriod.value = "";
+    mapMetric.disabled = isDynamics;
+    if (isDynamics) {
+      openingPeriod.value = "";
+      mapMetric.value = "absolute";
+    }
   };
 
   form.addEventListener("submit", (event) => {
@@ -674,6 +792,8 @@
         field.value = currentData.projection ? initialData.selection.competence : "";
       } else if (field.name === "analysis_mode") {
         field.value = "stock";
+      } else if (field.name === "map_metric") {
+        field.value = "absolute";
       } else {
         field.value = "";
       }

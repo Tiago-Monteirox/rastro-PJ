@@ -8,7 +8,7 @@
   <section class="page-heading map-page-heading">
     <span class="eyebrow">Inteligência territorial</span>
     <h1>Mapa analítico regional</h1>
-    <p>Explore a concentração cadastral ou compare a dinâmica dos estabelecimentos ativos nos 35 municípios do Triângulo Mineiro.</p>
+    <p>Explore a concentração absoluta, compare a presença cadastral por população ou acompanhe a dinâmica dos estabelecimentos ativos nos 35 municípios do Triângulo Mineiro.</p>
   </section>
 
   {% if not projection %}
@@ -49,6 +49,11 @@
                   <option value="{{ value }}" {% if initial_payload.selection.competence == value %}selected{% endif %}>{{ revision.window_competence.competence|date:"m/Y" }}</option>
                 {% endwith %}
               {% endfor %}
+            </select>
+          </label>
+          <label id="map-metric-filter">Métrica municipal
+            <select name="map_metric" {% if initial_payload.selection.analysis_mode == "dynamics" %}disabled{% endif %}>
+              {% for value, label in map_metric_options %}<option value="{{ value }}" {% if initial_payload.selection.map_metric == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
           </label>
           <label>Município
@@ -100,6 +105,14 @@
         <p id="map-filter-note" class="filter-note">Os filtros atualizam o mapa, os indicadores, os rankings e a tabela municipal com o mesmo recorte. “Ativo” refere-se à situação na competência escolhida.</p>
       </section>
 
+      <section id="map-population-indicators" class="metrics map-metrics population-metrics" aria-label="Indicadores demográficos contextuais" {% if initial_payload.dynamics or not initial_payload.population_reference.available %}hidden{% endif %}>
+        <article><span>População de referência</span><strong data-population-metric="population">{{ initial_payload.population_reference.population }}</strong></article>
+        <article><span>Estabelecimentos por mil habitantes</span><strong data-population-metric="establishments">{{ initial_payload.population_reference.establishments_per_1000 }}</strong></article>
+        <article><span>Empresas por mil habitantes</span><strong data-population-metric="companies">{{ initial_payload.population_reference.companies_per_1000 }}</strong></article>
+        <article><span>Cobertura demográfica</span><strong data-population-metric="coverage">{{ initial_payload.population_reference.municipalities_with_population }}/{{ initial_payload.population_reference.expected_municipalities }}</strong></article>
+      </section>
+      <p id="map-population-note" class="map-population-note" {% if initial_payload.dynamics or not initial_payload.population_reference.available %}hidden{% endif %}>Competência cadastral {{ initial_payload.selection.competence }}; população residente do {{ initial_payload.population_reference.source }}.</p>
+
       <section id="map-stock-indicators" class="metrics map-metrics" aria-label="Indicadores cartográficos" {% if initial_payload.dynamics %}hidden{% endif %}>
         <article><span>Estabelecimentos ativos</span><strong data-metric="establishments">{{ initial_payload.indicators.establishments }}</strong></article>
         <article><span>Empresas distintas</span><strong data-metric="companies">{{ initial_payload.indicators.companies }}</strong></article>
@@ -128,10 +141,10 @@
         </div>
         <div class="map-legends" aria-label="Legenda do mapa">
           <div id="map-stock-legend" class="map-legend-group" {% if initial_payload.dynamics %}hidden{% endif %}>
-            <strong>Concentração municipal</strong>
+            <strong id="map-stock-legend-title">{% if initial_payload.selection.map_metric == "per_1000" %}Estabelecimentos por mil habitantes{% else %}Concentração municipal{% endif %}</strong>
             <span class="map-density-scale" aria-hidden="true"></span>
-            <span class="map-density-labels"><span>0</span><span>1 mil</span><span>10 mil</span><span>100 mil+</span></span>
-            <small>Verde claro indica menos estabelecimentos; verde escuro, maior concentração.</small>
+            <span class="map-density-labels"><span data-stock-scale="minimum">0</span><span data-stock-scale="low">1 mil</span><span data-stock-scale="high">10 mil</span><span data-stock-scale="maximum">100 mil+</span></span>
+            <small id="map-stock-legend-note">{% if initial_payload.selection.map_metric == "per_1000" %}Verde escuro indica maior presença cadastral relativa à população residente de referência.{% else %}Verde claro indica menos estabelecimentos; verde escuro, maior concentração.{% endif %}</small>
           </div>
           <div id="map-dynamics-legend" class="map-legend-group" {% if not initial_payload.dynamics %}hidden{% endif %}>
             <strong>Variação do estoque ativo</strong>
@@ -165,7 +178,7 @@
           <div class="section-heading"><div><span id="municipality-ranking-eyebrow" class="eyebrow">{% if initial_payload.dynamics %}Maiores movimentos absolutos{% else %}Concentração{% endif %}</span><h2 id="municipality-ranking-title">Municípios</h2></div></div>
           <ol id="municipality-ranking" class="map-ranking-list">
             {% for item in initial_payload.rankings.municipalities %}
-              <li><span>{{ item.name }}</span><strong>{% if initial_payload.dynamics %}{{ item.stock_change }}{% else %}{{ item.establishments }}{% endif %}</strong></li>
+              <li><span>{{ item.name }}</span><strong>{% if initial_payload.dynamics %}{{ item.stock_change }}{% elif initial_payload.selection.map_metric == "per_1000" %}{{ item.establishments_per_1000 }}/1 mil{% else %}{{ item.establishments }}{% endif %}</strong></li>
             {% empty %}<li class="map-ranking-empty">Nenhuma variação no recorte.</li>
             {% endfor %}
           </ol>
@@ -208,7 +221,7 @@
               {% if initial_payload.dynamics %}
                 <tr><th>Município</th><th>Anterior</th><th>Atual</th><th>Variação</th><th>Taxa</th><th>Aberturas</th><th>Baixas</th></tr>
               {% else %}
-                <tr><th>Município</th><th>Estabelecimentos</th><th>Empresas</th><th>Cobertura</th></tr>
+                <tr><th>Município</th><th>Estabelecimentos</th><th>Empresas</th><th>População{% if initial_payload.population_reference.available %} ({{ initial_payload.population_reference.reference_year }}){% endif %}</th><th>Estab./1 mil hab.</th><th>Cobertura</th></tr>
               {% endif %}
             </thead>
             <tbody id="map-municipality-body">
@@ -225,6 +238,8 @@
                   {% else %}
                     <td>{{ feature.properties.establishments }}</td>
                     <td>{{ feature.properties.companies }}</td>
+                    <td>{{ feature.properties.population|default_if_none:"—" }}</td>
+                    <td>{{ feature.properties.establishments_per_1000|default_if_none:"—" }}</td>
                     <td>{{ feature.properties.coverage_percentage }}%</td>
                   {% endif %}
                 </tr>
@@ -240,6 +255,6 @@
 {% block extra_scripts %}
   {% if projection %}
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.29.0/mapbox-gl.js"></script>
-    <script src="{% static 'portal/establishment-map.js' %}?v=20260907g"></script>
+    <script src="{% static 'portal/establishment-map.js' %}?v=20260907h"></script>
   {% endif %}
 {% endblock %}
