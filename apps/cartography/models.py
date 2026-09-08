@@ -12,6 +12,7 @@ class GeographicSource(models.Model):
     class Kind(models.TextChoices):
         CNEFE = "CNEFE", "CNEFE"
         MUNICIPAL_BOUNDARIES = "MUNICIPAL_BOUNDARIES", "Malha municipal"
+        MUNICIPAL_POPULATION = "MUNICIPAL_POPULATION", "População municipal"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     kind = models.CharField(max_length=32, choices=Kind.choices)
@@ -60,6 +61,41 @@ class CnaeSubclass(models.Model):
 
     def __str__(self) -> str:
         return f"{self.code} — {self.description}"
+
+
+class MunicipalityPopulation(models.Model):
+    source = models.ForeignKey(
+        GeographicSource,
+        on_delete=models.PROTECT,
+        related_name="municipality_populations",
+    )
+    municipality = models.ForeignKey(
+        Municipality,
+        on_delete=models.PROTECT,
+        related_name="population_references",
+    )
+    reference_year = models.PositiveSmallIntegerField()
+    population = models.PositiveBigIntegerField()
+    synced_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cartography_municipality_population"
+        verbose_name = "população municipal"
+        verbose_name_plural = "populações municipais"
+        ordering = ("-reference_year", "municipality__name")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("municipality", "reference_year"),
+                name="cart_population_city_year_uniq",
+            ),
+            models.CheckConstraint(
+                condition=Q(population__gt=0),
+                name="cart_population_positive",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.municipality} — {self.population:,} habitantes ({self.reference_year})"
 
 
 class MunicipalityBoundary(models.Model):

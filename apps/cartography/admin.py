@@ -7,6 +7,7 @@ from .models import (
     CnaeSubclass,
     GeographicSource,
     MunicipalityBoundary,
+    MunicipalityPopulation,
 )
 
 
@@ -26,6 +27,13 @@ class GeographicSourceAdmin(admin.ModelAdmin):
 @admin.register(MunicipalityBoundary)
 class MunicipalityBoundaryAdmin(admin.ModelAdmin):
     list_display = ("municipality", "source", "center_latitude", "center_longitude")
+    search_fields = ("municipality__name", "municipality__ibge_code")
+
+
+@admin.register(MunicipalityPopulation)
+class MunicipalityPopulationAdmin(admin.ModelAdmin):
+    list_display = ("municipality", "population", "reference_year", "source", "synced_at")
+    list_filter = ("reference_year", "source")
     search_fields = ("municipality__name", "municipality__ibge_code")
 
 
