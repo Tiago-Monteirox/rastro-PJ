@@ -16,11 +16,12 @@ A janela oficial `2025-08..2026-08` está preparada e publicada localmente:
 - 15.751 métricas regionais persistidas.
 - projeção cartográfica publicada com 3.483.375 ocorrências ativas;
 - 3.316.568 ocorrências localizadas pelo CNEFE, cobertura global de 95,21%;
-- limites oficiais dos 35 municípios e navegação cartográfica nas 13 competências.
+- limites oficiais dos 35 municípios e navegação cartográfica nas 13 competências;
+- população residente do Censo 2022 sincronizada para 35/35 municípios, com indicadores por mil habitantes.
 
 As contagens de fotografias e observações cartográficas são somas das 13 competências, não quantidades de empresas únicas. O portal, a pesquisa, o detalhe, a timeline, os eventos, o dashboard, o mapa analítico, a watchlist e o acompanhamento de importações estão integrados ao mesmo monólito. O dashboard aceita competência inicial e final, município e CNAE; também apresenta os maiores aumentos de capital social e as maiores ampliações líquidas do quadro societário no recorte.
 
-A suíte atual possui 116 testes e foi aprovada em PostgreSQL. `ruff check`, `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. As revisões de pesquisa e QA, documentação, UI/UX e do professor permanecem pendentes e não são substituídas por essas verificações internas.
+A suíte atual possui 121 testes e foi aprovada em PostgreSQL. `ruff check`, `ruff format --check`, `manage.py check`, `makemigrations --check --dry-run` e a validação do Compose também passaram. As revisões de pesquisa e QA, documentação, UI/UX e do professor permanecem pendentes e não são substituídas por essas verificações internas.
 
 ## Indicadores e eventos
 
@@ -28,7 +29,7 @@ As 15 regras de mudança estão ativas. No portal, seus códigos técnicos perma
 
 Seis famílias de métricas mensais são materializadas no PostgreSQL: totais de empresas e estabelecimentos regionais, estabelecimentos por município, CNAE e situação cadastral, e empresas por porte. Aberturas, baixas, eventos por tipo, variação de CNAE, aumento de capital e ampliação societária são projeções derivadas dos snapshots e eventos publicados; por isso podem ser recalculadas sem duplicar a fonte de verdade.
 
-Indicadores avançados como taxas relativas, coortes de sobrevivência, concentração setorial e análise de redes entre empresas continuam fora do compromisso do MVP. Eles podem ser incorporados depois de definir interpretação de negócio e custo de consulta.
+Indicadores avançados como coortes de sobrevivência, especialização setorial e análise de redes entre empresas continuam fora do compromisso do MVP. O mapa já oferece a densidade cadastral populacional, sempre identificada como estabelecimentos por mil habitantes do Censo 2022, sem tratá-la como demanda ou potencial de mercado.
 
 ## Requisitos
 
@@ -113,6 +114,7 @@ make migrate     # aplica migrations
 make test        # executa a suíte no PostgreSQL
 make lint        # confere estilo e formatação
 make sync-cnae   # sincroniza descrições oficiais da CNAE no IBGE
+make sync-population # sincroniza a população municipal do Censo 2022 no IBGE
 make prepare-map # prepara ou confirma a projeção cartográfica
 ```
 
@@ -147,12 +149,13 @@ Os 35 CSVs municipais do CNEFE 2022 devem ficar em `var/data/cartography/cnefe-2
 
 ```bash
 make sync-cnae
+make sync-population
 make prepare-map
 ```
 
-O primeiro comando mantém no PostgreSQL o catálogo oficial de códigos e descrições da CNAE. O segundo inventaria e valida as fontes, resolve endereços distintos, aplica a cascata `endereço CNEFE → CEP → não localizado`, materializa as 13 competências, executa o quality gate e publica tudo atomicamente. A reexecução com os mesmos hashes é um no-op. Mapbox não recebe endereços e não é usado para geocodificação; apenas renderiza no navegador os dados consultados no Django.
+Os dois comandos de sincronização mantêm no PostgreSQL o catálogo oficial de códigos e descrições da CNAE e a população residente do Censo 2022 para os 35 códigos IBGE. A referência demográfica é local, versionada e auditável; nenhuma chamada ao IBGE ocorre durante a navegação. `prepare-map` inventaria e valida as fontes, resolve endereços distintos, aplica a cascata `endereço CNEFE → CEP → não localizado`, materializa as 13 competências, executa o quality gate e publica tudo atomicamente. As reexecuções com os mesmos conteúdos são idempotentes. Mapbox não recebe endereços e não é usado para geocodificação; apenas renderiza no navegador os dados consultados no Django.
 
-O mapa também possui um modo experimental de dinâmica territorial, que compara a competência selecionada com a publicada imediatamente antes dela. A semântica, os limites e as próximas fontes candidatas estão no [roadmap de inteligência territorial](docs/roadmap-inteligencia-territorial.md).
+O mapa também possui um modo experimental de dinâmica territorial, que compara a competência selecionada com a publicada imediatamente antes dela. No modo de concentração, a métrica municipal pode alternar entre volume absoluto e estabelecimentos por mil habitantes. A competência cadastral e o ano demográfico permanecem explícitos e a normalização populacional não é combinada com a dinâmica neste incremento. A semântica, os limites e as próximas fontes candidatas estão no [roadmap de inteligência territorial](docs/roadmap-inteligencia-territorial.md).
 
 ## Privacidade
 

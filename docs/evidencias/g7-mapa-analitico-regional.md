@@ -14,6 +14,7 @@ Demonstrar que o Rastro PJ consegue transformar endereços cadastrais publicados
 |---|---|---:|---|
 | CNEFE | 2022 | 35 | `184d0ba825f825712e803bb206df3fe6d5625e2f0c707ce34f364eddf56beb59` |
 | Malha municipal IBGE | 2022, qualidade mínima | 35 | `5b9e1c0ea583975a5f5883770b532466b7f3432c2a7e5593d448831c4d6405e4` |
+| População residente, tabela SIDRA 4709, variável 93 | Censo 2022 | 35 | `a97ec2409fd4c761647d092cf01d057bf25610122cc4b983288c38cb71beefcc` |
 | Catálogo de subclasses CNAE | API v2 do IBGE | 1.332 códigos | sincronização idempotente no PostgreSQL |
 
 Os 35 CSVs CNEFE possuem 961.993 linhas e 151 MiB extraídos. A malha possui 35 GeoJSON e 140 KiB. Arquivos permanecem em `var/data/cartography/`, fora do Git.
@@ -22,6 +23,7 @@ Os 35 CSVs CNEFE possuem 961.993 linhas e 151 MiB extraídos. A malha possui 35 
 
 ```bash
 make sync-cnae
+make sync-population
 make prepare-map
 ```
 
@@ -103,6 +105,26 @@ Cinco execuções aquecidas do resumo regional variaram de 0,836 s a 0,847 s. Ub
 
 O contrato automatizado cobre crescimento, retração, eventos confirmados, baseline, modo inválido, combinação incompatível e supressão de pontos individuais. A tabela municipal apresenta os mesmos valores do mapa.
 
+## Experimento de densidade cadastral populacional
+
+A referência demográfica é obtida manualmente na API SIDRA, validada contra os 35 códigos IBGE do recorte e persistida antes da consulta. O frontend não chama o IBGE. A carga só é considerada disponível quando um mesmo ano cobre integralmente o recorte.
+
+Resultado da sincronização do Censo 2022:
+
+| Medida | Resultado |
+|---|---:|
+| municípios com população | 35/35 |
+| população residente do recorte | 1.679.956 |
+| Uberlândia | 713.224 |
+| Uberaba | 337.836 |
+| Araguari | 117.808 |
+
+No modo de concentração, o usuário pode alternar a métrica municipal entre volume absoluto e estabelecimentos ativos por mil habitantes. O resumo, o ranking, os polígonos, o popup municipal e a tabela carregam a população e o valor relativo. A interface informa separadamente a competência cadastral e o ano do Censo.
+
+A métrica é `estabelecimentos elegíveis ÷ população residente × 1.000`. Ela mede presença cadastral relativa; não representa demanda, faturamento, emprego, produtividade, consumidores nem potencial de mercado. Para impedir comparações ambíguas, a opção por mil habitantes é incompatível com o modo de dinâmica territorial.
+
+Dez execuções aquecidas do resumo regional normalizado variaram de 0,809 s a 0,826 s, abaixo do limite de 1 segundo. O contrato automatizado rejeita fonte incompleta, ano inconsistente, métrica desconhecida e combinação temporal incompatível; o modo absoluto permanece disponível quando a referência ainda não foi sincronizada.
+
 ## Segurança, privacidade e degradação
 
 - página e três endpoints cartográficos exigem autenticação;
@@ -117,7 +139,7 @@ O contrato automatizado cobre crescimento, retração, eventos confirmados, base
 
 ## Smoke test no navegador
 
-A página autenticada foi aberta no Chrome em `http://localhost:8000/mapa/` com token público Mapbox configurado localmente. A interface apresentou os oito filtros, seis indicadores, legenda de concentração, legenda de precisão, polígonos e pontos sem expor a credencial no Git.
+A página autenticada foi aberta no Chrome em `http://localhost:8000/mapa/` com token público Mapbox configurado localmente antes do incremento demográfico. A interface apresentou os oito filtros cadastrais, indicadores, legenda de concentração, legenda de precisão, polígonos e pontos sem expor a credencial no Git. O novo seletor de métrica, os indicadores demográficos, o ranking relativo e a tabela ampliada possuem validação automatizada de backend e HTML; a homologação visual humana específica deste incremento permanece pendente.
 
 O recorte `Uberlândia + abertura na competência`, em `2026-08`, foi aplicado pela interface e produziu:
 
@@ -146,7 +168,7 @@ node --check apps/portal/static/portal/establishment-map.js
 docker compose config --quiet
 ```
 
-Resultado final: 116 testes aprovados em PostgreSQL em 4,733 s, sem falha de lint, formatação, Django, migração, JavaScript ou Compose.
+Resultado final: 121 testes aprovados em PostgreSQL em 3,787 s, sem falha de lint, formatação, Django, migração, JavaScript ou Compose.
 
 ## Conclusão
 

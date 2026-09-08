@@ -1,7 +1,7 @@
 # Roadmap de inteligência territorial
 
 **Produto:** Rastro PJ  
-**Status:** documento evolutivo; primeiro experimento implementado e validado internamente  
+**Status:** documento evolutivo; dois experimentos implementados e validados internamente
 **Última revisão:** 7 de setembro de 2026
 
 ## Objetivo
@@ -16,7 +16,7 @@ Este roadmap registra possibilidades, não compromissos de entrega. Cada nova ca
 |---:|---|---|---|---|---|
 | 1 | Dinâmica territorial | Onde o estoque ativo cresceu ou diminuiu entre competências? | Dados já importados da Receita e eventos derivados | Médio | Experimento atual |
 | 2 | Especialização por atividade | Quais municípios concentram proporcionalmente cada CNAE? | Dados já importados | Baixo | Próximo candidato |
-| 3 | Densidade e indicadores relativos | A concentração permanece alta após considerar população ou área? | IBGE Cidades e Estados/SIDRA | Baixo–médio | Planejado |
+| 3 | Densidade e indicadores relativos | A concentração permanece alta após considerar população ou área? | Censo 2022/SIDRA | Baixo–médio | Experimento atual — população |
 | 4 | Maturidade e renovação empresarial | O território é composto por negócios novos, maduros ou longevos? | Data de início da atividade | Baixo | Planejado |
 | 5 | Contratações públicas | Quais empresas e setores aparecem como fornecedores públicos? | PNCP | Médio–alto | Investigação |
 | 6 | Integridade cadastral | Há ocorrência da empresa em cadastros públicos restritivos? | CEIS, CNEP, CEPIM e Lista Suja | Médio | Roadmap geral |
@@ -85,13 +85,53 @@ Adicionar faixas de idade do estabelecimento e indicadores de abertura por coort
 
 Classificar uma expansão ou retração municipal como pontual ou persistente depois de duas ou três comparações consecutivas. O recurso deve usar linguagem descritiva e não chamar persistência histórica de tendência futura.
 
+## Experimento 2 — densidade cadastral populacional
+
+### Pergunta
+
+Como a presença de estabelecimentos ativos muda quando o tamanho populacional de cada município é considerado?
+
+### Recorte e regras
+
+- a população residente vem da variável 93 da tabela 4709 do SIDRA, referente ao Censo 2022;
+- o código IBGE de sete dígitos é a chave canônica do cruzamento;
+- a referência deve cobrir os 35 municípios antes que a métrica relativa seja habilitada;
+- a sincronização é manual, idempotente, versionada por conteúdo e executada fora das requisições web;
+- a competência cadastral selecionada e o ano demográfico são exibidos separadamente;
+- a opção relativa pertence somente ao modo de concentração; a dinâmica territorial continua em valores absolutos;
+- mapa e ranking municipal podem ser ordenados pela métrica relativa, enquanto contagens absolutas permanecem visíveis.
+
+### Métrica
+
+```text
+densidade cadastral populacional = estabelecimentos elegíveis ÷ população residente × 1.000
+```
+
+O mesmo cálculo contextual é apresentado para empresas distintas. O denominador regional é a soma das populações dos 35 municípios; quando há filtro municipal, usa-se somente a população daquele município.
+
+### Evidência interna
+
+- 35/35 municípios sincronizados;
+- população de referência total: 1.679.956 habitantes;
+- exemplos: Uberlândia 713.224, Uberaba 337.836 e Araguari 117.808 habitantes;
+- fonte `Censo 2022` registrada com SHA-256 `a97ec2409fd4c761647d092cf01d057bf25610122cc4b983288c38cb71beefcc`;
+- dez resumos regionais aquecidos variaram de 0,809 s a 0,826 s.
+
+### Limitações
+
+- população de 2022 e cadastros de 2025/2026 não representam o mesmo instante;
+- mais estabelecimentos por habitante não comprova demanda, faturamento, emprego, produtividade, concorrência ou melhor mercado;
+- estabelecimentos não equivalem a empresas, postos de trabalho ou unidades abertas ao público;
+- mudanças populacionais posteriores ao Censo não são estimadas neste experimento;
+- área territorial, PIB municipal e quociente locacional permanecem incrementos independentes.
+
 ## Enriquecimentos com fontes públicas
 
-### IBGE — população, área e PIB municipal
+### IBGE — área e PIB municipal
 
-Permite indicadores por mil habitantes, por quilômetro quadrado e contextualização econômica municipal. A competência anual e a defasagem de cada indicador devem aparecer na interface; valores de anos diferentes não podem ser apresentados como se fossem simultâneos.
+População por mil habitantes já participa do segundo experimento. Área e PIB podem acrescentar indicadores por quilômetro quadrado e contextualização econômica municipal. A competência anual e a defasagem de cada indicador devem aparecer na interface; valores de anos diferentes não podem ser apresentados como se fossem simultâneos.
 
-Fonte oficial: [IBGE — Cidades e Estados](https://www.ibge.gov.br/cidades-e-estados.html) e [PIB dos Municípios](https://www.ibge.gov.br/estatisticas/economicas/contas-nacionais/9088-produto-interno-bruto-dos-municipios.html).
+Fontes oficiais: [IBGE SIDRA — tabela 4709](https://sidra.ibge.gov.br/tabela/4709/), [IBGE — Cidades e Estados](https://www.ibge.gov.br/cidades-e-estados.html) e [PIB dos Municípios](https://www.ibge.gov.br/estatisticas/economicas/contas-nacionais/9088-produto-interno-bruto-dos-municipios.html).
 
 ### PNCP — contratações públicas
 

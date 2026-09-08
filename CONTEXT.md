@@ -142,6 +142,14 @@ _Evitar_: somente Araguari e Uberlândia, amostra técnica de quatro municípios
 Distribuição geográfica dos estabelecimentos elegíveis ao mapa segundo o CNAE principal na competência cartográfica. Indica presença cadastral observada, não demanda, faturamento, intensidade concorrencial ou oportunidade comercial comprovada.
 _Evitar_: tamanho do mercado, potencial de vendas, concorrência comprovada
 
+**Referência demográfica municipal**:
+População residente oficial associada ao código IBGE do município e ao ano em que foi medida, usada como denominador contextual sem alterar a competência cadastral analisada.
+_Evitar_: população da competência, população atual, projeção de consumidores
+
+**Densidade cadastral populacional**:
+Quantidade de estabelecimentos elegíveis ao mapa por mil habitantes da referência demográfica municipal. Compara presença cadastral relativa, não emprego, demanda, faturamento ou atividade econômica por pessoa.
+_Evitar_: densidade empresarial, potencial de mercado, empresas per capita
+
 **Estabelecimento elegível ao mapa**:
 Ocorrência regional de um estabelecimento com situação cadastral `02 — ATIVA` na competência selecionada. Somente estabelecimentos elegíveis compõem o mapa analítico regional da POC.
 _Evitar_: empresa ativa, estabelecimento ativo em qualquer competência, demais situações cadastrais

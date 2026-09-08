@@ -129,7 +129,7 @@ Execute um comando por vez. A primeira competência é baseline e não gera even
 
 ## 7. Projeção cartográfica
 
-O mapa usa a Receita para elegibilidade cadastral, o CNEFE 2022 para referência de coordenadas, a malha municipal do IBGE para os 35 polígonos e o Mapbox somente para renderização. Nenhuma geocodificação paga é executada.
+O mapa usa a Receita para elegibilidade cadastral, o CNEFE 2022 para referência de coordenadas, a malha municipal do IBGE para os 35 polígonos, a população residente do Censo 2022 para indicadores relativos e o Mapbox somente para renderização. Nenhuma geocodificação paga é executada.
 
 Organize os arquivos fora do Git:
 
@@ -147,10 +147,15 @@ Depois da publicação da janela histórica, execute:
 
 ```bash
 make sync-cnae
+make sync-population
 make prepare-map
 ```
 
 `sync-cnae` importa códigos e descrições da API CNAE v2 do IBGE. Ele é independente da projeção e pode ser reexecutado para atualizar os rótulos usados no filtro, nos rankings e nos detalhes do mapa.
+
+`sync-population` consulta a variável de população residente da tabela 4709 do SIDRA para os códigos IBGE do recorte mais recente. O comando exige resposta integral dos 35 municípios, valida ano, variável e valores positivos, calcula um SHA-256 do conteúdo e substitui idempotentemente a referência local do Censo 2022. Ele deve ser executado manualmente; nenhuma requisição do portal consulta o IBGE.
+
+Se a referência demográfica estiver ausente ou incompleta, o mapa continua operando em volume absoluto e rejeita somente a opção “Por mil habitantes”. A métrica relativa não pode ser combinada com a dinâmica territorial. O ano `2022` sempre deve ser lido separadamente da competência cadastral `2025/2026`.
 
 O comando equivalente e explícito é:
 
@@ -197,6 +202,8 @@ Resultado local de referência em 07/09/2026:
 | localizadas | 3.316.568 |
 | cobertura global | 95,21% |
 | menor cobertura municipal | Frutal, 71,48% |
+| população Censo 2022 | 1.679.956 habitantes, 35/35 municípios |
+| hash da referência populacional | `a97ec2409fd4c761647d092cf01d057bf25610122cc4b983288c38cb71beefcc` |
 | preparação integral | 10 min 02 s |
 | RSS máximo medido na indexação | 430 MiB |
 
@@ -211,7 +218,7 @@ uv run ruff format --check .
 docker compose config --quiet
 ```
 
-Resultado interno de referência em 07/09/2026: 116 testes aprovados em PostgreSQL e nenhum erro de lint, formatação, Django, migração pendente, JavaScript ou Compose.
+Resultado interno de referência em 07/09/2026: 121 testes aprovados em PostgreSQL e nenhum erro de lint, formatação, Django, migração pendente, JavaScript ou Compose.
 
 ## 9. Sanidade do banco oficial
 

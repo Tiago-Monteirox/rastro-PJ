@@ -331,7 +331,7 @@ Ao selecionar outra competência, elegibilidade, endereço, localização, indic
 - camadas de abertura, encerramento e movimentação regional;
 - animação ou comparação temporal;
 - normalização de bairros;
-- indicadores proporcionais com população, área ou outras fontes oficiais;
+- indicadores proporcionais por área e outras fontes oficiais;
 - integração de CEIS, CNEP, TCU, Lista Suja e CAFIMP;
 - heatmap e outras visualizações após validação semântica;
 - perfis de acesso, limites de uso e revisão de privacidade para publicação externa.
@@ -370,6 +370,21 @@ Em 7 de setembro de 2026 foi iniciado, sem alterar o modo padrão da POC, um exp
 
 O adendo não transforma comparação cadastral em previsão econômica e não autoriza animação, períodos arbitrários ou atribuição causal ao resíduo. O contrato e os próximos experimentos estão no [roadmap de inteligência territorial](roadmap-inteligencia-territorial.md).
 
+## Adendo experimental — referência demográfica municipal
+
+Em 7 de setembro de 2026, o modo de concentração recebeu um cruzamento reversível com a população residente do Censo 2022:
+
+- o código IBGE de sete dígitos relaciona cada um dos 35 municípios à variável 93 da tabela SIDRA 4709;
+- `sync_ibge_population` faz carga manual, integral, idempotente e auditável, sem consulta externa durante requisições web;
+- o PostgreSQL preserva fonte, ano, URL, manifesto e SHA-256, além de uma população positiva por município e ano;
+- a nona opção de filtro da concentração alterna o mapa e o ranking municipal entre volume absoluto e estabelecimentos por mil habitantes;
+- população, estabelecimentos por mil e empresas por mil permanecem visíveis como contexto, acompanhados da cobertura 35/35;
+- o GeoJSON e a tabela acessível expõem o mesmo denominador e o mesmo valor relativo;
+- a opção relativa exige cobertura demográfica completa e não pode ser combinada com dinâmica territorial;
+- a ausência da referência degrada apenas a métrica relativa, preservando a análise absoluta.
+
+“Densidade cadastral populacional” significa `estabelecimentos elegíveis ÷ população residente × 1.000`. O resultado não estima consumidores, emprego, receita, concorrência, produtividade ou potencial de mercado. A competência cadastral e o ano demográfico são diferentes e aparecem explicitamente na interface.
+
 ## Fontes externas consultadas
 
 - [Mapbox GL JS — grandes fontes GeoJSON](https://docs.mapbox.com/help/troubleshooting/working-with-large-geojson-data/)
@@ -377,3 +392,4 @@ O adendo não transforma comparação cadastral em previsão econômica e não a
 - [Mapbox — preços](https://www.mapbox.com/pricing)
 - [Mapbox Geocoding API](https://docs.mapbox.com/api/search/geocoding/)
 - [IBGE — Cadastro Nacional de Endereços para Fins Estatísticos](https://www.ibge.gov.br/estatisticas/sociais/populacao/38734-cadastro-nacional-de-enderecos-para-fins-estatisticos.html)
+- [IBGE SIDRA — tabela 4709, população residente do Censo 2022](https://sidra.ibge.gov.br/tabela/4709/)

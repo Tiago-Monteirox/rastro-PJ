@@ -1,15 +1,15 @@
 # Matriz de aceitação do MVP
 
 **Versão da matriz:** 07/09/2026
-**Total:** 47 cenários
+**Total:** 48 cenários
 **Janela de referência:** `2025-08..2026-08`  
 **Ambiente:** Mac local, Docker Compose, Django 5.2 e PostgreSQL
 
-Esta matriz materializa os 34 cenários cadastrais originais e os 13 cenários da projeção cartográfica. Ela separa teste automatizado, verificação interna no volume oficial e homologação externa. “Aprovado” nesta tabela significa evidência técnica interna; não significa aceite de pesquisa e QA, documentação, UI/UX ou do professor.
+Esta matriz materializa os 34 cenários cadastrais originais e os 14 cenários da projeção cartográfica. Ela separa teste automatizado, verificação interna no volume oficial e homologação externa. “Aprovado” nesta tabela significa evidência técnica interna; não significa aceite de pesquisa e QA, documentação, UI/UX ou do professor.
 
 ## Legenda
 
-- **Aprovado — automatizado:** existe teste direto e a suíte de 116 testes passou.
+- **Aprovado — automatizado:** existe teste direto e a suíte de 121 testes passou.
 - **Aprovado — oficial:** verificado internamente sobre a janela real ativa.
 - **Parcial:** parte crítica está coberta, mas falta uma variação ou evidência formal.
 - **Pendente:** ainda precisa de execução ou aceite específico.
@@ -85,10 +85,11 @@ Esta matriz materializa os 34 cenários cadastrais originais e os 13 cenários d
 | E11 | Preparação usa menos de 2 GiB/30 min e consultas aquecidas respeitam p95 de 1,0 s no resumo e 1,5 s nos demais endpoints | Aprovado — oficial | RSS de aproximadamente 430 MiB; p95 de 0,536 s, 0,103 s, 0,251 s e 0,020 s |
 | E12 | Fontes CNEFE e malhas possuem inventário, SHA-256, validação estrutural e cobertura mínima de 90% global/70% por município | Aprovado — oficial | 13/13 competências, 35/35 limites, 95,21% global, nenhuma falha municipal ou estrutural; consulte G7 |
 | E13 | Modo experimental compara competências consecutivas, separa variação do estoque de eventos confirmados, rejeita baseline/filtro incompatível e mantém o mapa padrão intacto | Aprovado — oficial | testes de crescimento, retração, baseline, contrato e pontos; `2026-07 → 2026-08` conferido no volume real e resumo aquecido abaixo de 1 s |
+| E14 | População do Censo 2022 cobre os 35 códigos IBGE; modo de concentração alterna volume e estabelecimentos por mil habitantes sem confundir anos, e rejeita fonte parcial ou combinação com dinâmica | Aprovado — oficial | carga SIDRA 35/35, total de 1.679.956 habitantes, hash auditável e testes de idempotência, contrato, normalização e degradação; resumo aquecido entre 0,809 s e 0,826 s |
 
 ## Resultado por tipo de evidência
 
-- suíte atual: **116/116 testes aprovados** em PostgreSQL, em 4,733 s; a regressão cadastral G6 permanece registrada separadamente com seus 68 testes históricos;
+- suíte atual: **121/121 testes aprovados** em PostgreSQL, em 3,787 s; a regressão cadastral G6 permanece registrada separadamente com seus 68 testes históricos;
 - qualidade estática e configuração: Ruff, Django, migrações e Compose aprovados;
 - dados oficiais: **13 competências, 12 comparações e 13 revisões ativas `r2`**;
 - privacidade persistente: **zero bloqueio** na auditoria final do PostgreSQL e dos pacotes ativos;

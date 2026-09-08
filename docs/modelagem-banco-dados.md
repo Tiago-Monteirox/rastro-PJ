@@ -66,6 +66,8 @@ erDiagram
     HISTORICAL_WINDOW ||--o{ CARTOGRAPHIC_PROJECTION : delimita
     GEOGRAPHIC_SOURCE ||--o{ CARTOGRAPHIC_PROJECTION : alimenta
     GEOGRAPHIC_SOURCE ||--o{ MUNICIPALITY_BOUNDARY : fornece
+    GEOGRAPHIC_SOURCE ||--o{ MUNICIPALITY_POPULATION : documenta
+    MUNICIPALITY ||--o{ MUNICIPALITY_POPULATION : contextualiza
     GEOGRAPHIC_SOURCE ||--o{ ADDRESS_RESOLUTION : referencia
     MUNICIPALITY ||--o{ MUNICIPALITY_BOUNDARY : delimita
     MUNICIPALITY ||--o{ ADDRESS_RESOLUTION : restringe
@@ -635,13 +637,26 @@ erDiagram
 | Coluna | Tipo | Nulo | Regra |
 |---|---|---:|---|
 | `id` | UUID | não | PK |
-| `kind` | VARCHAR(32) | não | `CNEFE` ou `MUNICIPAL_BOUNDARIES` |
+| `kind` | VARCHAR(32) | não | `CNEFE`, `MUNICIPAL_BOUNDARIES` ou `MUNICIPAL_POPULATION` |
 | `version` | VARCHAR(40) | não | versão declarada da fonte |
 | `content_hash` | VARCHAR(64) | não | SHA-256 do inventário canônico |
 | `manifest` | JSONB | não | arquivos, tamanhos, hashes e metadados auditáveis |
 | `created_at` | TIMESTAMPTZ | não | auditoria |
 
 Constraints: `UNIQUE(kind, version, content_hash)` e hash hexadecimal SHA-256.
+
+#### `cartography_municipality_population`
+
+| Coluna | Tipo | Nulo | Regra |
+|---|---|---:|---|
+| `id` | BIGINT | não | PK |
+| `source_id` | UUID | não | fonte demográfica versionada e protegida |
+| `municipality_id` | BIGINT | não | identidade canônica pelo código IBGE |
+| `reference_year` | SMALLINT | não | ano da população medida |
+| `population` | BIGINT | não | inteiro estritamente positivo |
+| `synced_at` | TIMESTAMPTZ | não | instante da última sincronização |
+
+A combinação `(municipality_id, reference_year)` é única. O registro fornece um denominador contextual e não altera snapshots, observações cartográficas nem competências cadastrais. A fonte guarda provedor, pesquisa, tabela, variável, URL, contagem e valores no manifesto; seu SHA-256 torna a carga reproduzível e auditável.
 
 #### `cartography_municipality_boundary`
 

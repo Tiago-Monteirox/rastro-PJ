@@ -104,7 +104,7 @@
       "y": 470,
       "width": 400,
       "height": 170,
-      "text": "## CNEFE 2022 + malhas IBGE\n\n35 municípios • endereços • coordenadas • nível de precisão • GeoJSON"
+      "text": "## Referências IBGE\n\nCNEFE 2022 • malhas • população Censo 2022\n\n35 códigos municipais canônicos"
     },
     {
       "id": "source-mapbox",
@@ -212,7 +212,7 @@
       "y": 260,
       "width": 650,
       "height": 180,
-      "text": "## Qualidade dentro do monólito\n\n116 testes • PostgreSQL • transações • comandos • fluxos\n\nHomologações externas da equipe e do professor pendentes"
+      "text": "## Qualidade dentro do monólito\n\n121 testes • PostgreSQL • transações • comandos • fluxos\n\nHomologações externas da equipe e do professor pendentes"
     },
     {
       "id": "monolith-cartography",
@@ -221,7 +221,7 @@
       "y": 500,
       "width": 430,
       "height": 220,
-      "text": "## Projeção cartográfica\n\n`prepare_cartographic_projection`\n\nNormalização • matching • quality gate • publicação atômica"
+      "text": "## Projeção cartográfica\n\n`prepare_cartographic_projection`\n`sync_ibge_population`\n\nMatching • quality gate • referências versionadas"
     },
     {
       "id": "db-postgres",
@@ -257,7 +257,7 @@
       "y": 500,
       "width": 480,
       "height": 220,
-      "text": "## Cartografia derivada\n\nFontes • malhas • resoluções\nprojeções • 3.483.375 observações\n\nPostgreSQL sem PostGIS"
+      "text": "## Cartografia derivada\n\nFontes • malhas • população • resoluções\nprojeções • 3.483.375 observações\n\nPostgreSQL sem PostGIS"
     },
     {
       "id": "ui-browser",
@@ -293,7 +293,7 @@
       "y": 500,
       "width": 460,
       "height": 220,
-      "text": "## Mapa analítico regional\n\n13 competências • 7 filtros • 6 indicadores\n\nAgregação progressiva • detalhe paginado • fallback acessível"
+      "text": "## Mapa analítico regional\n\n13 competências • 2 modos • 9 filtros de concentração\n\nIndicadores absolutos/relativos • detalhe paginado • fallback acessível"
     },
     {
       "id": "doc-validation",
